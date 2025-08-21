@@ -8,3 +8,7 @@ startCommand = "./startup.sh"
 [[volumes]]
 name = "database_volume"
 mountPath = "/app/data"
+
+# Environment variables
+[deploy.env]
+RAILWAY_RUN_UID = "0"

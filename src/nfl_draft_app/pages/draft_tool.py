@@ -1681,8 +1681,7 @@ def display_my_team():
         margin-bottom: 20px;
         text-align: center;
     ">
-        <h2 style="margin: 0; color: white;">🏆 {my_team_name}</h2>
-        <p style="margin: 8px 0 0 0; opacity: 0.9;">Draft Analysis & Roster Overview</p>
+        <h2 style="margin: 0; color: white; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏆 {my_team_name}</h2>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1745,22 +1744,23 @@ def display_my_team():
     st.markdown("### 📋 Roster Breakdown")
     
     # Create comprehensive player table
-    display_df = my_picks[['pick_number', 'round_number', 'player_name', 'position', 'player_team', 
+    display_df = my_picks[['pick_number', 'round_number', 'player_name', 'position', 'player_team', 'bye_week',
                           'projection', 'adp', 'value_score', 'vona_score']].copy()
     
     # Format the data for display
+    display_df['Round'] = display_df['round_number'].astype(int)
     display_df['Pick'] = display_df['pick_number'].astype(int)
-    display_df['Round'] = display_df['round_number'].astype(int) 
     display_df['Player'] = display_df['player_name']
     display_df['Pos'] = display_df['position']
     display_df['Team'] = display_df['player_team'].fillna('-')
+    display_df['Bye'] = display_df['bye_week'].fillna('').astype(str).replace('nan', '').replace('', '-')
     display_df['Proj'] = display_df['projection'].round(1)
     display_df['ADP'] = display_df['adp'].round(1)
     display_df['Value'] = display_df['value_score'].round(1)
     display_df['VONA'] = display_df['vona_score'].round(1)
     
-    # Select final columns
-    final_df = display_df[['Pick', 'Round', 'Player', 'Pos', 'Team', 'Proj', 'ADP', 'Value', 'VONA']]
+    # Select final columns (Round first, then Pick)
+    final_df = display_df[['Round', 'Pick', 'Player', 'Pos', 'Team', 'Bye', 'Proj', 'ADP', 'Value', 'VONA']]
     
     # Display with custom styling
     st.dataframe(
@@ -1768,11 +1768,12 @@ def display_my_team():
         use_container_width=True,
         hide_index=True,
         column_config={
+            'Round': st.column_config.NumberColumn('Round', width='small'),
             'Pick': st.column_config.NumberColumn('Pick', width='small'),
-            'Round': st.column_config.NumberColumn('R', width='small'),
             'Player': st.column_config.TextColumn('Player', width='medium'),
             'Pos': st.column_config.TextColumn('Pos', width='small'),
             'Team': st.column_config.TextColumn('Team', width='small'),
+            'Bye': st.column_config.TextColumn('Bye', width='small'),
             'Proj': st.column_config.NumberColumn('Proj', width='small', format='%.1f'),
             'ADP': st.column_config.NumberColumn('ADP', width='small', format='%.1f'),
             'Value': st.column_config.NumberColumn('Value', width='small', format='%.1f'),
@@ -1780,54 +1781,34 @@ def display_my_team():
         }
     )
     
-    # Position analysis
-    col1, col2 = st.columns(2)
+    # Position analysis (simplified)
+    st.markdown("### 📊 Position Analysis")
+    pos_data = []
+    for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DST']:
+        count = pos_counts.get(pos, 0)
+        if count > 0:
+            pos_players = my_picks[my_picks['position'] == pos]
+            avg_proj = pos_players['projection'].mean()
+            pos_data.append({
+                'Position': pos,
+                'Count': count,
+                'Avg Proj': f"{avg_proj:.1f}" if pd.notna(avg_proj) else "N/A"
+            })
     
-    with col1:
-        st.markdown("### 📊 Position Analysis")
-        pos_data = []
-        for pos in ['QB', 'RB', 'WR', 'TE', 'K', 'DST']:
-            count = pos_counts.get(pos, 0)
-            if count > 0:
-                pos_players = my_picks[my_picks['position'] == pos]
-                avg_proj = pos_players['projection'].mean()
-                avg_vona = pos_players['vona_score'].mean()
-                pos_data.append({
-                    'Position': pos,
-                    'Count': count,
-                    'Avg Proj': f"{avg_proj:.1f}" if pd.notna(avg_proj) else "N/A",
-                    'Avg VONA': f"{avg_vona:.1f}" if pd.notna(avg_vona) else "N/A"
-                })
-        
-        if pos_data:
-            pos_df = pd.DataFrame(pos_data)
-            st.dataframe(pos_df, use_container_width=True, hide_index=True)
+    if pos_data:
+        pos_df = pd.DataFrame(pos_data)
+        st.dataframe(
+            pos_df, 
+            use_container_width=True, 
+            hide_index=True,
+            column_config={
+                'Position': st.column_config.TextColumn('Position', width='medium'),
+                'Count': st.column_config.NumberColumn('Count', width='small'),
+                'Avg Proj': st.column_config.TextColumn('Avg Proj', width='small')
+            }
+        )
     
-    with col2:
-        st.markdown("### 🎯 Draft Strategy Insights")
-        insights = []
-        
-        if len(early_picks) > 0:
-            early_avg_vona = early_picks['vona_score'].mean() if 'vona_score' in early_picks.columns else 0
-            insights.append(f"**Early Rounds (1-3):** {len(early_picks)} picks, {early_avg_vona:.1f} avg VONA")
-        
-        if len(late_picks) > 0:
-            late_avg_vona = late_picks['vona_score'].mean() if 'vona_score' in late_picks.columns else 0
-            insights.append(f"**Late Rounds (10+):** {len(late_picks)} picks, {late_avg_vona:.1f} avg VONA")
-        
-        if len(value_picks) > 0:
-            insights.append(f"**Value Picks:** {len(value_picks)} players with VONA > 20")
-        
-        # Best pick analysis
-        if not my_picks.empty and 'vona_score' in my_picks.columns:
-            best_pick = my_picks.loc[my_picks['vona_score'].idxmax()]
-            insights.append(f"**Best Value:** {best_pick['player_name']} ({best_pick['vona_score']:.1f} VONA)")
-        
-        for insight in insights:
-            st.markdown(f"• {insight}")
-        
-        if not insights:
-            st.info("Draft more players to see strategy insights!")
+
 
 def display_player_card(player):
     """Display a single player card with stats."""

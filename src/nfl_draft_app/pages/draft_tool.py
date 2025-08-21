@@ -1380,6 +1380,7 @@ def display_settings():
         if st.button("🆕 Create New Draft", use_container_width=True):
             st.session_state.current_session_id = None
             st.session_state.draft_manager = None
+            st.session_state.show_draft_creator = True
             st.rerun()
     
     with col2:
@@ -1937,8 +1938,12 @@ def main():
         with st.sidebar:
             display_draft_summary()
     
-    # Check if we have an active draft
-    if st.session_state.current_session_id is None:
+    # Check if we have an active draft or need to show creation interface
+    if st.session_state.current_session_id is None or st.session_state.get('show_draft_creator', False):
+        # Clear the creator flag once we're showing the interface
+        if st.session_state.get('show_draft_creator', False):
+            st.session_state.show_draft_creator = False
+        
         # Show tabs for creating new or loading existing draft
         tab1, tab2 = st.tabs(["Create New Draft", "Load Existing Draft"])
         

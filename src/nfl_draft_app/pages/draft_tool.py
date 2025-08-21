@@ -399,6 +399,9 @@ def create_new_draft():
         
         submitted = st.form_submit_button("Create Draft")
         
+        # DEBUG: Check form submission
+        st.write(f"🔍 DEBUG FORM: submitted={submitted}, draft_name='{draft_name}'")
+        
         if submitted and draft_name:
             try:
                 # Create draft configuration
@@ -432,6 +435,11 @@ def create_new_draft():
                 st.write(f"🔍 DEBUG: Exception details: {type(e).__name__}: {e}")
                 import traceback
                 st.code(traceback.format_exc())
+        else:
+            if submitted:
+                st.write("🔍 DEBUG: Form submitted but draft_name is empty!")
+            else:
+                st.write("🔍 DEBUG: Form not submitted")
 
 def load_existing_draft():
     """Interface for loading an existing draft session."""

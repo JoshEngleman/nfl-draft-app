@@ -6,8 +6,9 @@ import pandas as pd
 import re
 from typing import List, Tuple, Dict, Optional
 from datetime import datetime
+from .database import create_database_engine, get_database_config, get_db_file_path
 
-DB_FILE = "data/fantasy_pros.db"
+DB_FILE = get_db_file_path()  # Legacy compatibility
 
 def generate_fantasypros_url(player_name: str, position: str, team: str = None) -> str:
     """Generate FantasyPros player profile URL.

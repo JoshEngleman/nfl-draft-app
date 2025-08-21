@@ -3,12 +3,35 @@
 # Create data directory if it doesn't exist
 mkdir -p /app/data
 
-# Check if database exists and has draft tables
+# Check database type and existence
 DB_EXISTS=false
-if [ -f "/app/data/fantasy_pros.db" ]; then
-    echo "Database file found. Checking for draft tables..."
-    # Check if draft tables exist by trying to query one
+if [ -n "$DATABASE_URL" ]; then
+    echo "PostgreSQL database detected (Railway). Checking for draft tables..."
+    # Check if draft tables exist in PostgreSQL
     if python -c "
+import os
+import sys
+sys.path.append('/app/src')
+try:
+    from nfl_draft_app.utils.database import create_database_engine
+    engine = create_database_engine()
+    with engine.connect() as conn:
+        result = conn.execute('SELECT COUNT(*) FROM draft_sessions LIMIT 1')
+        conn.close()
+    sys.exit(0)
+except:
+    sys.exit(1)
+" 2>/dev/null; then
+        echo "PostgreSQL database and draft tables found. Skipping initialization."
+        DB_EXISTS=true
+    else
+        echo "PostgreSQL database exists but draft tables missing. Will initialize draft tables only."
+    fi
+else
+    # SQLite fallback for local development
+    if [ -f "/app/data/fantasy_pros.db" ]; then
+        echo "SQLite database file found. Checking for draft tables..."
+        if python -c "
 import sqlite3
 import sys
 try:
@@ -20,13 +43,14 @@ try:
 except:
     sys.exit(1)
 " 2>/dev/null; then
-        echo "Database and draft tables found. Skipping initialization."
-        DB_EXISTS=true
+            echo "SQLite database and draft tables found. Skipping initialization."
+            DB_EXISTS=true
+        else
+            echo "SQLite database exists but draft tables missing. Will initialize draft tables only."
+        fi
     else
-        echo "Database exists but draft tables missing. Will initialize draft tables only."
+        echo "No database found. Full initialization needed."
     fi
-else
-    echo "Database not found. Full initialization needed."
 fi
 
 # Only run full initialization if database doesn't exist
@@ -47,7 +71,13 @@ if [ "$DB_EXISTS" = false ]; then
     
     # Setup draft tables (this won't affect existing draft data)
     echo "Setting up draft tables..."
-    python src/nfl_draft_app/scripts/03_setup_draft_tables.py
+    if [ -n "$DATABASE_URL" ]; then
+        # Use PostgreSQL-compatible script
+        python src/nfl_draft_app/scripts/03_setup_draft_tables_pg.py
+    else
+        # Use SQLite script for local development
+        python src/nfl_draft_app/scripts/03_setup_draft_tables.py
+    fi
     
     # Calculate replacement values
     echo "Calculating replacement values..."

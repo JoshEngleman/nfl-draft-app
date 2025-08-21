@@ -1,10 +1,14 @@
 import os
+import sys
 import pandas as pd
 from sqlalchemy import create_engine, text
 
+# Add src to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from nfl_draft_app.utils.database import create_database_engine
+
 # Configuration
 RAW_FILES_DIR = "data/raw_projections/"
-DB_FILE = "data/fantasy_pros.db"
 
 def process_projection_file(file_path, table_name, engine):
     """
@@ -159,7 +163,7 @@ def main():
     print("Starting data processing...")
     
     # Clear all data tables at the start to ensure fresh data
-    engine = create_engine(f'sqlite:///{DB_FILE}')
+    engine = create_database_engine()
     tables_to_clear = ['overall_adp', 'qb_projections', 'rb_projections', 'wr_projections', 
                       'te_projections', 'k_projections', 'dst_projections']
     

@@ -53,43 +53,58 @@ except:
     fi
 fi
 
-# Only run full initialization if database doesn't exist
+# Only run initialization if database doesn't exist or needs setup
 if [ "$DB_EXISTS" = false ]; then
-    # Download data if raw files don't exist or database doesn't exist
-    if [ ! -f "/app/data/fantasy_pros.db" ] && ([ ! -d "/app/data/raw_projections" ] || [ -z "$(ls -A /app/data/raw_projections)" ]); then
-        echo "Downloading initial data..."
-        cd /app
-        python src/nfl_draft_app/scripts/01_download_projections.py
-    fi
-    
-    # Process data only if database doesn't exist
-    if [ ! -f "/app/data/fantasy_pros.db" ]; then
-        echo "Processing data..."
-        cd /app
-        python src/nfl_draft_app/scripts/02_process_projections.py
-    fi
-    
-    # Setup draft tables (this won't affect existing draft data)
-    echo "Setting up draft tables..."
     if [ -n "$DATABASE_URL" ]; then
-        # Use PostgreSQL-compatible script
+        # PostgreSQL mode - only setup draft tables, don't reprocess projection data
+        echo "PostgreSQL detected - setting up draft tables only (preserving existing data)..."
         python src/nfl_draft_app/scripts/03_setup_draft_tables_pg.py
-    else
-        # Use SQLite script for local development
-        python src/nfl_draft_app/scripts/03_setup_draft_tables.py
-    fi
-    
-    # Calculate replacement values
-    echo "Calculating replacement values..."
-    python -c "
+        
+        # Only calculate replacement values if needed
+        echo "Calculating replacement values (if needed)..."
+        python -c "
 import sys
 sys.path.append('/app/src')
 from nfl_draft_app.utils.draft_logic import calculate_replacement_values
 print('Calculating replacement values...')
 replacement_values = calculate_replacement_values()
 print(f'Replacement values calculated: {replacement_values}')
-print('Database initialization complete!')
+print('PostgreSQL initialization complete!')
 "
+    else
+        # SQLite mode - full initialization for local development
+        echo "SQLite mode - full initialization..."
+        
+        # Download data if raw files don't exist
+        if [ ! -d "/app/data/raw_projections" ] || [ -z "$(ls -A /app/data/raw_projections)" ]; then
+            echo "Downloading initial data..."
+            cd /app
+            python src/nfl_draft_app/scripts/01_download_projections.py
+        fi
+        
+        # Process data only if database doesn't exist
+        if [ ! -f "/app/data/fantasy_pros.db" ]; then
+            echo "Processing data..."
+            cd /app
+            python src/nfl_draft_app/scripts/02_process_projections.py
+        fi
+        
+        # Setup draft tables
+        echo "Setting up draft tables..."
+        python src/nfl_draft_app/scripts/03_setup_draft_tables.py
+        
+        # Calculate replacement values
+        echo "Calculating replacement values..."
+        python -c "
+import sys
+sys.path.append('/app/src')
+from nfl_draft_app.utils.draft_logic import calculate_replacement_values
+print('Calculating replacement values...')
+replacement_values = calculate_replacement_values()
+print(f'Replacement values calculated: {replacement_values}')
+print('SQLite initialization complete!')
+"
+    fi
 fi
 
 # Debug: Show database info before starting (PostgreSQL persistence test)

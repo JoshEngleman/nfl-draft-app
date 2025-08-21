@@ -66,7 +66,6 @@ class DraftManager:
     def __init__(self, session_id: int = None):
         self.session_id = session_id
         self.engine = get_database_engine()  # Use shared engine instance
-        self.engine = get_database_engine()  # Use shared engine instance
         
     def _execute_sql(self, query: str, params: Dict = None):
         """Execute SQL query and return result."""

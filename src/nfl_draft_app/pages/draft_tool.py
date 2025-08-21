@@ -1963,10 +1963,6 @@ def main():
     
     # Check if we have an active draft or need to show creation interface
     if st.session_state.current_session_id is None or st.session_state.get('show_draft_creator', False):
-        # Clear the creator flag once we're showing the interface
-        if st.session_state.get('show_draft_creator', False):
-            st.session_state.show_draft_creator = False
-        
         # Show tabs for creating new or loading existing draft
         tab1, tab2 = st.tabs(["Create New Draft", "Load Existing Draft"])
         
@@ -1975,6 +1971,10 @@ def main():
         
         with tab2:
             load_existing_draft()
+        
+        # Clear the creator flag AFTER showing the interface (prevents auto-loading on next rerun)
+        if st.session_state.get('show_draft_creator', False):
+            st.session_state.show_draft_creator = False
     else:
         # Draft interface
         tab1, tab2, tab3, tab4 = st.tabs(["Draft Board", "Player Search", "My Team", "Settings"])

@@ -333,10 +333,6 @@ strong, .stMarkdown strong {
 """, unsafe_allow_html=True)
 
 # Initialize session state
-st.write(f"🔍 DEBUG PAGE LOAD: Session state keys at start: {list(st.session_state.keys())}")
-st.write(f"🔍 DEBUG PAGE LOAD: current_session_id at start: {st.session_state.get('current_session_id', 'NOT_SET')}")
-st.write(f"🔍 DEBUG PAGE LOAD: draft_manager at start: {st.session_state.get('draft_manager', 'NOT_SET')}")
-
 if 'draft_manager' not in st.session_state:
     st.session_state.draft_manager = None
 if 'current_session_id' not in st.session_state:
@@ -350,7 +346,6 @@ if (st.session_state.current_session_id is None and
     st.session_state.draft_manager is None and 
     not st.session_state.get('show_draft_loader', False)):
     
-    st.write("🔍 DEBUG: Creating fresh draft automatically...")
     try:
         # Create a new draft automatically
         from datetime import datetime
@@ -369,11 +364,9 @@ if (st.session_state.current_session_id is None and
         st.session_state.draft_manager = DraftManager(session_id)
         st.session_state.current_session_id = session_id
         
-        st.write(f"🔍 DEBUG: Auto-created fresh draft with session_id: {session_id}")
-        
     except Exception as e:
-        st.write(f"🔍 DEBUG: Auto-draft creation failed: {e}")
         # Fall back to showing creation interface
+        st.error(f"Failed to create draft: {e}")
         st.session_state.show_draft_creator = True
 
 def create_new_draft():
@@ -406,54 +399,30 @@ def create_new_draft():
         
         submitted = st.form_submit_button("Create Draft")
     
-    # DEBUG: Check form submission (OUTSIDE the form)
-    st.write(f"🔍 DEBUG FORM: submitted={submitted}, draft_name='{draft_name}'")
-    if submitted:
-        st.write("🔍 DEBUG: Form was submitted!")
-    if draft_name:
-        st.write(f"🔍 DEBUG: Draft name exists: '{draft_name}'")
+    # Handle form submission
         
     if submitted and draft_name:
         try:
             # Create draft configuration
-            st.write("🔍 DEBUG: Starting draft creation...")
             dm = DraftManager()
-            st.write("🔍 DEBUG: DraftManager created")
-            
             config_id = dm.create_draft_config(draft_name, num_teams, num_rounds, draft_type)
-            st.write(f"🔍 DEBUG: Config created with ID: {config_id}")
-            
             session_id = dm.create_draft_session(config_id, session_name, team_names)
-            st.write(f"🔍 DEBUG: Session created with ID: {session_id}")
             
             # Create a new DraftManager instance with the correct session_id
             st.session_state.draft_manager = DraftManager(session_id)
             st.session_state.current_session_id = session_id
             
-            # DEBUG: Verify session state
-            st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
-            st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
-            st.write("🔍 DEBUG: About to call st.rerun() - session state should persist!")
-            st.write(f"🔍 DEBUG: Session state keys before rerun: {list(st.session_state.keys())}")
-            
-            # Clear any creation/loading flags and prevent auto-loading
+            # Clear any creation/loading flags
             st.session_state.show_draft_creator = False
             st.session_state.show_draft_loader = False
-            st.session_state.prevent_auto_load = True  # Prevent auto-loading on next run
             
-            st.success(f"✅ Draft created successfully! Session ID: {session_id}")
+            st.success(f"✅ Draft created successfully: {draft_name}")
             st.rerun()
             
         except Exception as e:
-            st.error(f"❌ DRAFT CREATION FAILED: {str(e)}")
-            st.write(f"🔍 DEBUG: Exception details: {type(e).__name__}: {e}")
-            import traceback
-            st.code(traceback.format_exc())
-    else:
-        if submitted:
-            st.write("🔍 DEBUG: Form submitted but draft_name is empty!")
-        else:
-            st.write("🔍 DEBUG: Form not submitted")
+            st.error(f"❌ Failed to create draft: {str(e)}")
+    elif submitted:
+        st.error("Please enter a draft name")
 
 def load_existing_draft():
     """Interface for loading an existing draft session."""

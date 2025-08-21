@@ -79,7 +79,12 @@ class DraftManager:
     
     def _fetch_dataframe(self, query: str, params: Dict = None):
         """Execute SQL query and return pandas DataFrame."""
-        return pd.read_sql_query(query, self.engine, params=params)
+        if params:
+            # Use SQLAlchemy text() with bound parameters for PostgreSQL compatibility
+            from sqlalchemy import text
+            return pd.read_sql_query(text(query), self.engine, params=params)
+        else:
+            return pd.read_sql_query(query, self.engine)
     
     def get_all_draft_sessions(self) -> List[Dict]:
         """Get all draft sessions ordered by most recent."""
@@ -611,7 +616,8 @@ def get_draft_settings(session_id: int) -> Dict:
     """Get draft settings for a session."""
     engine = create_database_engine()
     query = 'SELECT * FROM draft_settings WHERE session_id = :session_id'
-    df = pd.read_sql_query(query, engine, params={"session_id": session_id})
+    from sqlalchemy import text
+    df = pd.read_sql_query(text(query), engine, params={"session_id": session_id})
     
     if len(df) > 0:
         return df.iloc[0].to_dict()

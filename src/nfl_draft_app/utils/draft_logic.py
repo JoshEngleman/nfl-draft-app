@@ -498,11 +498,16 @@ class DraftManager:
             config_id = config_df.iloc[0]['config_id'] if len(config_df) > 0 else None
             
             # Delete in order due to foreign key constraints
+            print(f"DEBUGGING DELETE: Deleting draft_picks for session {session_id}")
             self._execute_sql('DELETE FROM draft_picks WHERE session_id = :session_id', {"session_id": session_id})
+            
+            print(f"DEBUGGING DELETE: Deleting draft_settings for session {session_id}")
             self._execute_sql('DELETE FROM draft_settings WHERE session_id = :session_id', {"session_id": session_id})
+            
+            print(f"DEBUGGING DELETE: Deleting draft_teams for session {session_id}")
             self._execute_sql('DELETE FROM draft_teams WHERE session_id = :session_id', {"session_id": session_id})
             
-            # Delete the session
+            print(f"DEBUGGING DELETE: Deleting draft_sessions for session {session_id}")
             self._execute_sql('DELETE FROM draft_sessions WHERE id = :session_id', {"session_id": session_id})
             
             # Check if this config is used by other sessions, if not, delete it
@@ -511,11 +516,16 @@ class DraftManager:
                 count_df = self._fetch_dataframe(count_query, {"config_id": config_id})
                 remaining_sessions = count_df.iloc[0]['count']
                 if remaining_sessions == 0:
+                    print(f"DEBUGGING DELETE: Deleting draft_configs for config {config_id}")
                     self._execute_sql('DELETE FROM draft_configs WHERE id = :config_id', {"config_id": config_id})
             
+            print(f"DEBUGGING DELETE: Successfully deleted session {session_id}")
             return True
             
         except Exception as e:
+            print(f"DEBUGGING DELETE: Exception occurred: {e}")
+            import traceback
+            print(f"DEBUGGING DELETE: Full traceback: {traceback.format_exc()}")
             return False
 
 def get_replacement_levels() -> Dict[str, Dict]:

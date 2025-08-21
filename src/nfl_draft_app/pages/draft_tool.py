@@ -428,8 +428,195 @@ def create_new_draft():
     elif submitted:
         st.error("Please enter a draft name")
 
+def display_draft_manager():
+    """Comprehensive draft management interface - load, delete, and manage drafts."""
+    st.markdown("### 📊 Draft Management")
+    
+    # Get draft manager
+    if st.session_state.draft_manager:
+        dm = st.session_state.draft_manager
+    else:
+        dm = DraftManager()
+    
+    # Get all draft sessions
+    sessions = dm.get_all_draft_sessions()
+    
+    if not sessions:
+        st.info("📭 No existing drafts found.")
+        if st.button("❌ Close Manager"):
+            st.session_state.show_draft_manager = False
+            st.rerun()
+        return
+    
+    st.markdown(f"**Found {len(sessions)} draft session(s)**")
+    
+    # Add bulk actions
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("🔄 Refresh List", use_container_width=True):
+            st.rerun()
+    with col2:
+        selected_for_bulk = st.session_state.get('bulk_selected', [])
+        if selected_for_bulk and st.button(f"🗑️ Delete Selected ({len(selected_for_bulk)})", use_container_width=True, type="secondary"):
+            st.session_state.show_bulk_confirm = True
+    with col3:
+        if st.button("❌ Close Manager", use_container_width=True):
+            st.session_state.show_draft_manager = False
+            st.session_state.bulk_selected = []
+            st.rerun()
+    
+    # Handle bulk delete confirmation
+    if st.session_state.get('show_bulk_confirm', False):
+        st.error("⚠️ **Bulk Delete Confirmation**")
+        st.write(f"You are about to delete {len(selected_for_bulk)} draft session(s). This action cannot be undone.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Confirm Bulk Delete", type="primary"):
+                deleted_count = 0
+                failed_count = 0
+                for session_id in selected_for_bulk:
+                    if dm.delete_draft_session(session_id):
+                        deleted_count += 1
+                    else:
+                        failed_count += 1
+                
+                if deleted_count > 0:
+                    st.success(f"✅ Successfully deleted {deleted_count} draft session(s)")
+                if failed_count > 0:
+                    st.error(f"❌ Failed to delete {failed_count} draft session(s)")
+                
+                st.session_state.show_bulk_confirm = False
+                st.session_state.bulk_selected = []
+                st.rerun()
+        
+        with col2:
+            if st.button("❌ Cancel Bulk Delete"):
+                st.session_state.show_bulk_confirm = False
+                st.rerun()
+        
+        st.divider()
+    
+    # Initialize bulk selection if not exists
+    if 'bulk_selected' not in st.session_state:
+        st.session_state.bulk_selected = []
+    
+    # Display each draft session
+    for i, session in enumerate(sessions):
+        # Create a container for each session
+        with st.container():
+            col1, col2, col3, col4, col5, col6 = st.columns([0.5, 3, 1.5, 1, 1, 1])
+            
+            with col1:
+                # Bulk selection checkbox
+                is_selected = session['id'] in st.session_state.bulk_selected
+                if st.checkbox("", key=f"bulk_{session['id']}", value=is_selected, label_visibility="collapsed"):
+                    if session['id'] not in st.session_state.bulk_selected:
+                        st.session_state.bulk_selected.append(session['id'])
+                else:
+                    if session['id'] in st.session_state.bulk_selected:
+                        st.session_state.bulk_selected.remove(session['id'])
+            
+            with col2:
+                # Draft info
+                draft_name = session.get('name', 'Unnamed Draft')
+                config_name = session.get('config_name', 'Unknown Config')
+                st.markdown(f"**{draft_name}**")
+                st.caption(f"Config: {config_name}")
+                
+                # Additional details
+                created = session.get('created_at', 'Unknown')
+                picks_made = session.get('picks_made', 0)
+                total_picks = session.get('num_teams', 0) * session.get('num_rounds', 0)
+                completion = f"{picks_made}/{total_picks}" if total_picks > 0 else f"{picks_made} picks"
+                
+                st.caption(f"📅 {created} | 🎯 {completion}")
+            
+            with col3:
+                # Status indicator
+                picks_made = session.get('picks_made', 0)
+                total_picks = session.get('num_teams', 0) * session.get('num_rounds', 0)
+                
+                if picks_made == 0:
+                    st.markdown("🆕 **New Draft**")
+                elif total_picks > 0 and picks_made >= total_picks:
+                    st.markdown("✅ **Complete**")
+                elif picks_made > 0:
+                    st.markdown(f"⏳ **In Progress**")
+                else:
+                    st.markdown("📋 **Ready**")
+            
+            with col4:
+                # Load button
+                if st.button("📂 Load", key=f"load_{session['id']}", use_container_width=True):
+                    st.session_state.current_session_id = session['id']
+                    st.session_state.draft_manager = DraftManager(session['id'])
+                    st.session_state.show_draft_manager = False
+                    st.session_state.bulk_selected = []
+                    st.success(f"✅ Loaded: {draft_name}")
+                    st.rerun()
+            
+            with col5:
+                # Individual delete button
+                if st.button("🗑️", key=f"delete_{session['id']}", use_container_width=True, help="Delete this draft"):
+                    st.session_state[f"confirm_delete_{session['id']}"] = True
+                    st.rerun()
+            
+            with col6:
+                # Info button
+                if st.button("ℹ️", key=f"info_{session['id']}", use_container_width=True, help="View details"):
+                    st.session_state[f"show_info_{session['id']}"] = True
+                    st.rerun()
+        
+        # Handle individual delete confirmation
+        if st.session_state.get(f"confirm_delete_{session['id']}", False):
+            st.error(f"⚠️ **Delete '{draft_name}'?**")
+            st.write("This action cannot be undone.")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Confirm Delete", key=f"confirm_yes_{session['id']}", type="primary"):
+                    if dm.delete_draft_session(session['id']):
+                        st.success(f"✅ Deleted: {draft_name}")
+                        # Clear current session if we deleted it
+                        if st.session_state.get('current_session_id') == session['id']:
+                            st.session_state.current_session_id = None
+                            st.session_state.draft_manager = None
+                    else:
+                        st.error("❌ Failed to delete draft session")
+                    
+                    del st.session_state[f"confirm_delete_{session['id']}"]
+                    st.rerun()
+            
+            with col2:
+                if st.button("❌ Cancel", key=f"confirm_no_{session['id']}"):
+                    del st.session_state[f"confirm_delete_{session['id']}"]
+                    st.rerun()
+        
+        # Handle info display
+        if st.session_state.get(f"show_info_{session['id']}", False):
+            with st.expander(f"📋 Details: {draft_name}", expanded=True):
+                info_col1, info_col2 = st.columns(2)
+                with info_col1:
+                    st.write("**Draft Configuration:**")
+                    st.write(f"• Teams: {session.get('num_teams', 'Unknown')}")
+                    st.write(f"• Rounds: {session.get('num_rounds', 'Unknown')}")
+                    st.write(f"• Type: {session.get('draft_type', 'Unknown')}")
+                
+                with info_col2:
+                    st.write("**Progress:**")
+                    st.write(f"• Current Pick: {session.get('current_pick', 'Unknown')}")
+                    st.write(f"• Current Round: {session.get('current_round', 'Unknown')}")
+                    st.write(f"• Status: {session.get('status', 'Unknown')}")
+                
+                if st.button("❌ Close Details", key=f"close_info_{session['id']}"):
+                    del st.session_state[f"show_info_{session['id']}"]
+                    st.rerun()
+        
+        st.divider()
+
 def load_existing_draft():
-    """Interface for loading an existing draft session."""
+    """Legacy function - replaced by display_draft_manager()."""
     st.subheader("Load Existing Draft")
     
     dm = DraftManager()
@@ -1455,8 +1642,8 @@ def display_settings():
                 st.error(f"❌ Failed to create draft: {e}")
     
     with col2:
-        if st.button("📂 Load Existing Draft", use_container_width=True):
-            st.session_state.show_draft_loader = True
+        if st.button("📊 Manage Drafts", use_container_width=True):
+            st.session_state.show_draft_manager = True
             st.rerun()
     
     with col3:
@@ -1464,46 +1651,9 @@ def display_settings():
             if st.button("🔄 Refresh Current Draft", use_container_width=True):
                 st.rerun()
     
-    # Show draft loader if requested
-    if st.session_state.get('show_draft_loader', False):
-        st.markdown("#### Available Drafts")
-        if st.session_state.draft_manager:
-            dm = st.session_state.draft_manager
-        else:
-            dm = DraftManager()
-        
-        sessions = dm.get_all_draft_sessions()
-        if sessions:
-            for session in sessions:
-                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-                with col1:
-                    st.write(f"**{session.get('name', 'Unnamed Draft')}** ({session.get('config_name', 'Unknown Config')})")
-                    st.caption(f"Created: {session.get('created_at', 'Unknown')} | Picks: {session.get('picks_made', 0)}")
-                
-                with col2:
-                    if st.button("Load", key=f"load_{session['id']}"):
-                        st.session_state.current_session_id = session['id']
-                        st.session_state.draft_manager = DraftManager(session['id'])
-                        st.session_state.show_draft_loader = False
-                        st.rerun()
-                
-                with col3:
-                    if st.button("Delete", key=f"delete_{session['id']}"):
-                        if dm.delete_draft_session(session['id']):
-                            st.success("Draft deleted!")
-                            st.session_state.show_draft_loader = False
-                            st.rerun()
-                        else:
-                            st.error("Failed to delete draft")
-                
-                st.divider()
-        else:
-            st.info("No existing drafts found.")
-        
-        if st.button("❌ Cancel"):
-            st.session_state.show_draft_loader = False
-            st.rerun()
-        
+    # Show draft manager if requested
+    if st.session_state.get('show_draft_manager', False):
+        display_draft_manager()
         st.markdown("---")
     
     # Rest of settings (only show if we have an active draft)

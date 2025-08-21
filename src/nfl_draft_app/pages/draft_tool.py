@@ -341,7 +341,11 @@ if 'replacement_levels' not in st.session_state:
     st.session_state.replacement_levels = get_replacement_levels()
 
 # Auto-load the most recent draft session if none is active
-if st.session_state.current_session_id is None and st.session_state.draft_manager is None:
+# BUT NOT if user explicitly wants to create a new draft or load a specific one
+if (st.session_state.current_session_id is None and 
+    st.session_state.draft_manager is None and 
+    not st.session_state.get('show_draft_creator', False) and
+    not st.session_state.get('show_draft_loader', False)):
     try:
         dm = DraftManager()
         recent_session = dm.get_most_recent_session()

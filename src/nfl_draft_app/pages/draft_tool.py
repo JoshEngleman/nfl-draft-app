@@ -333,6 +333,10 @@ strong, .stMarkdown strong {
 """, unsafe_allow_html=True)
 
 # Initialize session state
+st.write(f"🔍 DEBUG PAGE LOAD: Session state keys at start: {list(st.session_state.keys())}")
+st.write(f"🔍 DEBUG PAGE LOAD: current_session_id at start: {st.session_state.get('current_session_id', 'NOT_SET')}")
+st.write(f"🔍 DEBUG PAGE LOAD: draft_manager at start: {st.session_state.get('draft_manager', 'NOT_SET')}")
+
 if 'draft_manager' not in st.session_state:
     st.session_state.draft_manager = None
 if 'current_session_id' not in st.session_state:
@@ -408,6 +412,10 @@ def create_new_draft():
         
         # DEBUG: Check form submission
         st.write(f"🔍 DEBUG FORM: submitted={submitted}, draft_name='{draft_name}'")
+        if submitted:
+            st.write("🔍 DEBUG: Form was submitted!")
+        if draft_name:
+            st.write(f"🔍 DEBUG: Draft name exists: '{draft_name}'")
         
         if submitted and draft_name:
             try:
@@ -429,6 +437,8 @@ def create_new_draft():
                 # DEBUG: Verify session state
                 st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
                 st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
+                st.write("🔍 DEBUG: About to call st.rerun() - session state should persist!")
+                st.write(f"🔍 DEBUG: Session state keys before rerun: {list(st.session_state.keys())}")
                 
                 # Clear any creation/loading flags and prevent auto-loading
                 st.session_state.show_draft_creator = False

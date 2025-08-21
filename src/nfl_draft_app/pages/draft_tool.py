@@ -340,6 +340,19 @@ if 'current_session_id' not in st.session_state:
 if 'replacement_levels' not in st.session_state:
     st.session_state.replacement_levels = get_replacement_levels()
 
+# Auto-load the most recent draft session if none is active
+if st.session_state.current_session_id is None and st.session_state.draft_manager is None:
+    try:
+        dm = DraftManager()
+        recent_session = dm.get_most_recent_session()
+        if recent_session and recent_session['status'] == 'active':
+            if dm.load_draft_session(recent_session['id']):
+                st.session_state.draft_manager = dm
+                st.session_state.current_session_id = recent_session['id']
+    except Exception:
+        # If auto-load fails, just continue without a session
+        pass
+
 def create_new_draft():
     """Interface for creating a new draft configuration and session."""
     st.subheader("Create New Draft")
@@ -416,11 +429,13 @@ def load_existing_draft():
                 st.write(f"{progress:.1%} complete")
                 
                 if st.button(f"Load Draft", key=f"load_{session['id']}"):
-                    dm.load_draft_session(session['id'])
-                    st.session_state.draft_manager = dm
-                    st.session_state.current_session_id = session['id']
-                    st.success(f"Loaded draft session: {session['name']}")
-                    st.rerun()
+                    if dm.load_draft_session(session['id']):
+                        st.session_state.draft_manager = dm
+                        st.session_state.current_session_id = session['id']
+                        st.success(f"Loaded draft session: {session['name']}")
+                        st.rerun()
+                    else:
+                        st.error("Failed to load draft session")
             
             with col5:
                 st.write("")  # Empty space to align with other columns

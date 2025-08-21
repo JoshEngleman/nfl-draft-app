@@ -151,7 +151,7 @@ class DraftManager:
             JOIN draft_configs dc ON ds.config_id = dc.id
             LEFT JOIN draft_picks dp ON ds.id = dp.session_id
             GROUP BY ds.id
-            ORDER BY ds.created_at DESC
+            ORDER BY ds.updated_at DESC, ds.created_at DESC
         ''')
         rows = cursor.fetchall()
         results = []
@@ -161,9 +161,19 @@ class DraftManager:
         conn.close()
         return results
     
+    def get_most_recent_session(self) -> Optional[Dict]:
+        """Get the most recently updated draft session."""
+        sessions = self.get_all_draft_sessions()
+        return sessions[0] if sessions else None
+    
     def load_draft_session(self, session_id: int):
         """Load an existing draft session."""
-        self.session_id = session_id
+        # Verify the session exists and is valid
+        session = self.get_draft_session(session_id)
+        if session:
+            self.session_id = session_id
+            return True
+        return False
     
     def get_team_names(self, session_id: int = None) -> Dict[int, str]:
         """Get team names for a session, returns dict mapping team_number -> team_name."""

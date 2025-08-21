@@ -62,7 +62,7 @@ print('Database initialization complete!')
 "
 fi
 
-# Debug: Show volume and database info before starting
+# Debug: Show volume and database info before starting (persistence test)
 echo "=== DEBUG INFO ==="
 echo "Data directory exists: $(test -d /app/data && echo 'YES' || echo 'NO')"
 echo "Data directory contents: $(ls -la /app/data 2>/dev/null || echo 'Directory not accessible')"

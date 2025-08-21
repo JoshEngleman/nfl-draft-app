@@ -344,41 +344,37 @@ if 'current_session_id' not in st.session_state:
 if 'replacement_levels' not in st.session_state:
     st.session_state.replacement_levels = get_replacement_levels()
 
-# Auto-load the most recent draft session if none is active
-# BUT NOT if user explicitly wants to create a new draft or load a specific one
-st.write(f"🔍 DEBUG AUTO-LOAD CHECK:")
-st.write(f"  - current_session_id: {st.session_state.current_session_id}")
-st.write(f"  - draft_manager: {st.session_state.draft_manager}")
-st.write(f"  - show_draft_creator: {st.session_state.get('show_draft_creator', False)}")
-st.write(f"  - show_draft_loader: {st.session_state.get('show_draft_loader', False)}")
-st.write(f"  - prevent_auto_load: {st.session_state.get('prevent_auto_load', False)}")
-
+# AUTO-CREATE A NEW DRAFT if none exists
+# This ensures users always start with a fresh draft
 if (st.session_state.current_session_id is None and 
     st.session_state.draft_manager is None and 
-    not st.session_state.get('show_draft_creator', False) and
-    not st.session_state.get('show_draft_loader', False) and
-    not st.session_state.get('prevent_auto_load', False)):
-    st.write("🔍 DEBUG: AUTO-LOADING TRIGGERED!")
+    not st.session_state.get('show_draft_loader', False)):
+    
+    st.write("🔍 DEBUG: Creating fresh draft automatically...")
     try:
+        # Create a new draft automatically
+        from datetime import datetime
         dm = DraftManager()
-        recent_session = dm.get_most_recent_session()
-        st.write(f"🔍 DEBUG: Most recent session: {recent_session}")
-        if recent_session and recent_session['status'] == 'active':
-            if dm.load_draft_session(recent_session['id']):
-                st.session_state.draft_manager = dm
-                st.session_state.current_session_id = recent_session['id']
-                st.write(f"🔍 DEBUG: AUTO-LOADED session_id: {recent_session['id']}")
+        
+        # Create default draft config
+        draft_name = f"Draft {datetime.now().strftime('%m/%d/%Y %H:%M')}"
+        config_id = dm.create_draft_config(draft_name, 10, 15, "snake")  # Default: 10 teams, 15 rounds, snake
+        
+        # Create session with default team names
+        session_name = f"Session {datetime.now().strftime('%H:%M')}"
+        team_names = [f"Team {i}" for i in range(1, 11)]  # Team 1, Team 2, etc.
+        session_id = dm.create_draft_session(config_id, session_name, team_names)
+        
+        # Set up the draft manager
+        st.session_state.draft_manager = DraftManager(session_id)
+        st.session_state.current_session_id = session_id
+        
+        st.write(f"🔍 DEBUG: Auto-created fresh draft with session_id: {session_id}")
+        
     except Exception as e:
-        st.write(f"🔍 DEBUG: Auto-load failed: {e}")
-        # If auto-load fails, just continue without a session
-        pass
-else:
-    st.write("🔍 DEBUG: AUTO-LOADING SKIPPED (conditions not met)")
-
-# Clear the prevent_auto_load flag after checking (so it only prevents one auto-load)
-if st.session_state.get('prevent_auto_load', False):
-    st.session_state.prevent_auto_load = False
-    st.write("🔍 DEBUG: Cleared prevent_auto_load flag")
+        st.write(f"🔍 DEBUG: Auto-draft creation failed: {e}")
+        # Fall back to showing creation interface
+        st.session_state.show_draft_creator = True
 
 def create_new_draft():
     """Interface for creating a new draft configuration and session."""
@@ -1450,10 +1446,29 @@ def display_settings():
     
     with col1:
         if st.button("🆕 Create New Draft", use_container_width=True):
-            st.session_state.current_session_id = None
-            st.session_state.draft_manager = None
-            st.session_state.show_draft_creator = True
-            st.rerun()
+            # Create a fresh draft immediately
+            from datetime import datetime
+            try:
+                dm = DraftManager()
+                
+                # Create default draft config
+                draft_name = f"Draft {datetime.now().strftime('%m/%d/%Y %H:%M')}"
+                config_id = dm.create_draft_config(draft_name, 10, 15, "snake")
+                
+                # Create session with default team names
+                session_name = f"Session {datetime.now().strftime('%H:%M')}"
+                team_names = [f"Team {i}" for i in range(1, 11)]
+                session_id = dm.create_draft_session(config_id, session_name, team_names)
+                
+                # Set up the new draft
+                st.session_state.draft_manager = DraftManager(session_id)
+                st.session_state.current_session_id = session_id
+                
+                st.success(f"✅ Created new draft: {draft_name}")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Failed to create draft: {e}")
     
     with col2:
         if st.button("📂 Load Existing Draft", use_container_width=True):
@@ -2016,22 +2031,13 @@ def main():
         with st.sidebar:
             display_draft_summary()
     
-    # Check if we have an active draft or need to show creation interface
-    if st.session_state.current_session_id is None or st.session_state.get('show_draft_creator', False):
-        # Show tabs for creating new or loading existing draft
-        tab1, tab2 = st.tabs(["Create New Draft", "Load Existing Draft"])
-        
-        with tab1:
-            create_new_draft()
-        
-        with tab2:
-            load_existing_draft()
-        
-        # Clear the creator flag AFTER showing the interface (prevents auto-loading on next rerun)
-        if st.session_state.get('show_draft_creator', False):
-            st.session_state.show_draft_creator = False
+    # Show draft interface (we always have a draft now)
+    # Only show creation interface if explicitly loading a draft
+    if st.session_state.get('show_draft_loader', False):
+        st.subheader("Load Existing Draft")
+        load_existing_draft()
     else:
-        # Draft interface
+        # Main draft interface
         tab1, tab2, tab3, tab4 = st.tabs(["Draft Board", "Player Search", "My Team", "Settings"])
         
         with tab1:

@@ -8,3 +8,6 @@ wheels/
 
 # venv
 .venv
+
+# Database files (let Railway manage persistence)
+data/fantasy_pros.db

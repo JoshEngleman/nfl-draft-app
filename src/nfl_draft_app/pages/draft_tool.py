@@ -1365,7 +1365,78 @@ def display_player_search():
 
 def display_settings():
     """Display draft settings interface."""
+    st.markdown("""
+    <div class="header-gradient">
+        <h3>⚙️ Draft Settings</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Draft Management Section (always visible)
+    st.markdown("### 📋 Draft Management")
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("🆕 Create New Draft", use_container_width=True):
+            st.session_state.current_session_id = None
+            st.session_state.draft_manager = None
+            st.rerun()
+    
+    with col2:
+        if st.button("📂 Load Existing Draft", use_container_width=True):
+            st.session_state.show_draft_loader = True
+            st.rerun()
+    
+    with col3:
+        if st.session_state.current_session_id:
+            if st.button("🔄 Refresh Current Draft", use_container_width=True):
+                st.rerun()
+    
+    # Show draft loader if requested
+    if st.session_state.get('show_draft_loader', False):
+        st.markdown("#### Available Drafts")
+        if st.session_state.draft_manager:
+            dm = st.session_state.draft_manager
+        else:
+            dm = DraftManager()
+        
+        sessions = dm.get_all_draft_sessions()
+        if sessions:
+            for session in sessions:
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                with col1:
+                    st.write(f"**{session.get('name', 'Unnamed Draft')}** ({session.get('config_name', 'Unknown Config')})")
+                    st.caption(f"Created: {session.get('created_at', 'Unknown')} | Picks: {session.get('picks_made', 0)}")
+                
+                with col2:
+                    if st.button("Load", key=f"load_{session['id']}"):
+                        st.session_state.current_session_id = session['id']
+                        st.session_state.draft_manager = DraftManager(session['id'])
+                        st.session_state.show_draft_loader = False
+                        st.rerun()
+                
+                with col3:
+                    if st.button("Delete", key=f"delete_{session['id']}"):
+                        if dm.delete_draft_session(session['id']):
+                            st.success("Draft deleted!")
+                            st.session_state.show_draft_loader = False
+                            st.rerun()
+                        else:
+                            st.error("Failed to delete draft")
+                
+                st.divider()
+        else:
+            st.info("No existing drafts found.")
+        
+        if st.button("❌ Cancel"):
+            st.session_state.show_draft_loader = False
+            st.rerun()
+        
+        st.markdown("---")
+    
+    # Rest of settings (only show if we have an active draft)
     if not st.session_state.draft_manager or not st.session_state.current_session_id:
+        st.info("Create or load a draft to access additional settings.")
         return
     
     dm = st.session_state.draft_manager
@@ -1373,12 +1444,6 @@ def display_settings():
     team_names = dm.get_team_names(st.session_state.current_session_id)
     current_settings = get_draft_settings(st.session_state.current_session_id)
     current_replacement_levels = get_replacement_levels()
-    
-    st.markdown("""
-    <div class="header-gradient">
-        <h3>⚙️ Draft Settings</h3>
-    </div>
-    """, unsafe_allow_html=True)
     
     # My Team Selection (outside form for auto-save)
     st.markdown("### 🏆 My Team")

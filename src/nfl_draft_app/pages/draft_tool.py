@@ -523,15 +523,19 @@ def display_draft_board():
                             team_for_logo = team_abbr
                     
                     if team_for_logo and team_for_logo != '-':
-                        team_logo_html = get_team_logo_html(team_for_logo.lower(), size="20px")
+                        team_logo_html = get_team_logo_html(team_for_logo.lower(), size="28px")
+                    
+                    # Format bye week display
+                    bye_week_display = f"Bye {int(pick['bye_week'])}" if pick['bye_week'] else ""
                     
                     st.markdown(f"""
                     <div class="draft-pick {position_class}">
-                        <strong>{pick['player_name']}</strong><br>
+                        <strong style="font-size: 1rem;">{pick['player_name']}</strong><br>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin: 4px 0;">
                             {team_logo_html}
                             <span>{pick['position']}</span>
                         </div>
+                        {f'<div style="font-size: 0.75rem; color: var(--neutral-600); margin: 2px 0;">{bye_week_display}</div>' if bye_week_display else ''}
                         <small>Pick {pick_number}</small>
                     </div>
                     """, unsafe_allow_html=True)

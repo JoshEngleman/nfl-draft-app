@@ -1,7 +1,13 @@
 #!/bin/bash
 
+# Railway deployment script - PostgreSQL only
+set -e  # Exit on any error
+
 # Create data directory if it doesn't exist
 mkdir -p /app/data
+
+# Activate virtual environment for Railway
+export PATH="/opt/venv/bin:$PATH"
 
 # Check PostgreSQL database and tables
 DB_EXISTS=false
@@ -11,7 +17,7 @@ if [ -n "$DATABASE_URL" ]; then
     if python -c "
 import os
 import sys
-sys.path.append('/app/src')
+sys.path.insert(0, '/app/src')
 try:
     from nfl_draft_app.utils.database import create_database_engine
     from sqlalchemy import text
@@ -62,7 +68,7 @@ if [ "$DB_EXISTS" = false ]; then
     echo "Calculating replacement values..."
     python -c "
 import sys
-sys.path.append('/app/src')
+sys.path.insert(0, '/app/src')
 from nfl_draft_app.utils.draft_logic import calculate_replacement_values
 print('Calculating replacement values...')
 replacement_values = calculate_replacement_values()

@@ -342,20 +342,32 @@ if 'replacement_levels' not in st.session_state:
 
 # Auto-load the most recent draft session if none is active
 # BUT NOT if user explicitly wants to create a new draft or load a specific one
+st.write(f"🔍 DEBUG AUTO-LOAD CHECK:")
+st.write(f"  - current_session_id: {st.session_state.current_session_id}")
+st.write(f"  - draft_manager: {st.session_state.draft_manager}")
+st.write(f"  - show_draft_creator: {st.session_state.get('show_draft_creator', False)}")
+st.write(f"  - show_draft_loader: {st.session_state.get('show_draft_loader', False)}")
+
 if (st.session_state.current_session_id is None and 
     st.session_state.draft_manager is None and 
     not st.session_state.get('show_draft_creator', False) and
     not st.session_state.get('show_draft_loader', False)):
+    st.write("🔍 DEBUG: AUTO-LOADING TRIGGERED!")
     try:
         dm = DraftManager()
         recent_session = dm.get_most_recent_session()
+        st.write(f"🔍 DEBUG: Most recent session: {recent_session}")
         if recent_session and recent_session['status'] == 'active':
             if dm.load_draft_session(recent_session['id']):
                 st.session_state.draft_manager = dm
                 st.session_state.current_session_id = recent_session['id']
-    except Exception:
+                st.write(f"🔍 DEBUG: AUTO-LOADED session_id: {recent_session['id']}")
+    except Exception as e:
+        st.write(f"🔍 DEBUG: Auto-load failed: {e}")
         # If auto-load fails, just continue without a session
         pass
+else:
+    st.write("🔍 DEBUG: AUTO-LOADING SKIPPED (conditions not met)")
 
 def create_new_draft():
     """Interface for creating a new draft configuration and session."""
@@ -393,9 +405,17 @@ def create_new_draft():
             config_id = dm.create_draft_config(draft_name, num_teams, num_rounds, draft_type)
             session_id = dm.create_draft_session(config_id, session_name, team_names)
             
+            # DEBUG: Show what we created
+            st.write(f"🔍 DEBUG: Created new draft with session_id: {session_id}")
+            st.write(f"🔍 DEBUG: Config ID: {config_id}")
+            
             # Create a new DraftManager instance with the correct session_id
             st.session_state.draft_manager = DraftManager(session_id)
             st.session_state.current_session_id = session_id
+            
+            # DEBUG: Verify session state
+            st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
+            st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
             
             # Clear any creation/loading flags
             st.session_state.show_draft_creator = False

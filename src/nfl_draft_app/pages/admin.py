@@ -677,6 +677,52 @@ def display_debug_diagnostics():
             except Exception as e:
                 st.error(f"❌ Error checking {table}: {e}")
         
+        # Test 2.5: Direct SQL Query Test
+        st.markdown("#### 2.5. Direct SQL Query Test")
+        if st.button("🧪 Test Direct SQL Queries", key="test_sql"):
+            st.markdown("**Testing the exact SQL queries used in replacement calculation:**")
+            
+            # Test QB query directly
+            try:
+                # Test the exact query for QB rank 22
+                qb_query = '''
+                    SELECT fantasy_points 
+                    FROM qb_projections 
+                    WHERE fantasy_points IS NOT NULL
+                    ORDER BY fantasy_points DESC 
+                    LIMIT 1 OFFSET 21
+                '''
+                qb_result = pd.read_sql_query(qb_query, engine)
+                
+                if not qb_result.empty:
+                    qb_value = qb_result.iloc[0]['fantasy_points']
+                    st.success(f"✅ QB Query Success: 22nd best QB = {qb_value:.2f} points")
+                else:
+                    st.error("❌ QB Query returned empty result")
+                    
+                # Also test the count
+                count_query = "SELECT COUNT(*) as count FROM qb_projections WHERE fantasy_points IS NOT NULL"
+                count_result = pd.read_sql_query(count_query, engine)
+                qb_count = count_result.iloc[0]['count']
+                st.info(f"QB Count: {qb_count} players with fantasy_points")
+                
+                # Show top 5 QBs for reference
+                top_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY fantasy_points DESC LIMIT 5"
+                top_qbs = pd.read_sql_query(top_qb_query, engine)
+                st.markdown("**Top 5 QBs:**")
+                st.dataframe(top_qbs, use_container_width=True)
+                
+                # Show 20th-25th QBs
+                mid_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY fantasy_points DESC LIMIT 5 OFFSET 19"
+                mid_qbs = pd.read_sql_query(mid_qb_query, engine)
+                st.markdown("**QBs ranked 20-24 (including our 22nd):**")
+                st.dataframe(mid_qbs, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"❌ SQL Query Error: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+
         # Test 3: Manual replacement calculation test
         st.markdown("#### 3. Manual Replacement Calculation Test")
         if st.button("🧪 Test Replacement Calculation", key="test_replacement"):

@@ -86,17 +86,7 @@ class DraftManager:
         else:
             return pd.read_sql_query(query, self.engine)
     
-    def get_all_draft_sessions(self) -> List[Dict]:
-        """Get all draft sessions ordered by most recent."""
-        query = '''
-            SELECT ds.id, ds.name, ds.status, ds.created_at, ds.updated_at,
-                   dc.name as config_name, dc.num_teams, dc.num_rounds, dc.draft_type
-            FROM draft_sessions ds
-            JOIN draft_configs dc ON ds.config_id = dc.id
-            ORDER BY ds.updated_at DESC
-        '''
-        df = self._fetch_dataframe(query)
-        return df.to_dict('records')
+
     
     def create_draft_config(self, name: str, num_teams: int, num_rounds: int, draft_type: str) -> int:
         """Create a new draft configuration and return its ID."""

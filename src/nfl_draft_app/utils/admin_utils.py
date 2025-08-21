@@ -255,9 +255,6 @@ def validate_data_integrity() -> Dict:
                 validation_results['errors'].append(f"{table} column check: {str(e)}")
                 validation_results['status'] = 'error'
     
-    finally:
-    
-    
     return validation_results
 
 def get_system_status() -> Dict:

@@ -470,7 +470,7 @@ class DraftManager:
         '''
         self._execute_sql(delete_query, {
             "session_id": session_id, 
-            "pick_number": last_pick['pick_number']
+            "pick_number": int(last_pick['pick_number'])  # Convert numpy.int64 to Python int
         })
         
         # Update session to go back to that pick
@@ -481,9 +481,9 @@ class DraftManager:
             WHERE id = :session_id
         '''
         self._execute_sql(update_query, {
-            "current_pick": last_pick['pick_number'],
-            "current_round": last_pick['round_number'],
-            "current_team": last_pick['team_number'],
+            "current_pick": int(last_pick['pick_number']),
+            "current_round": int(last_pick['round_number']),
+            "current_team": int(last_pick['team_number']),
             "session_id": session_id
         })
         
@@ -495,7 +495,7 @@ class DraftManager:
             # Get config_id before deleting the session
             config_query = 'SELECT config_id FROM draft_sessions WHERE id = :session_id'
             config_df = self._fetch_dataframe(config_query, {"session_id": session_id})
-            config_id = config_df.iloc[0]['config_id'] if len(config_df) > 0 else None
+            config_id = int(config_df.iloc[0]['config_id']) if len(config_df) > 0 else None
             
             # Delete in order due to foreign key constraints
             print(f"DEBUGGING DELETE: Deleting draft_picks for session {session_id}")

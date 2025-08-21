@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "./startup.sh"
+
+# Try to use Railway's persistent storage if available
+[experimental]
+configMounts = ["/app/data"]

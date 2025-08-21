@@ -56,7 +56,7 @@ if [ "$DB_EXISTS" = false ]; then
     
     # Setup draft tables in PostgreSQL
     echo "Setting up draft tables in PostgreSQL..."
-    python src/nfl_draft_app/scripts/03_setup_draft_tables_pg.py
+    python src/nfl_draft_app/scripts/03_setup_draft_tables.py
     
     # Calculate replacement values
     echo "Calculating replacement values..."
@@ -71,26 +71,11 @@ print('PostgreSQL initialization complete!')
 "
 fi
 
-# Debug: Show database info before starting (FINAL persistence test - should preserve Session 14:41)
+# Debug: Show PostgreSQL database info
 echo "=== DEBUG INFO ==="
+echo "PostgreSQL DATABASE_URL: $(echo $DATABASE_URL | sed 's/:[^@]*@/:***@/')"  # Hide password
 echo "Data directory exists: $(test -d /app/data && echo 'YES' || echo 'NO')"
 echo "Data directory contents: $(ls -la /app/data 2>/dev/null || echo 'Directory not accessible')"
-echo "Database file exists: $(test -f /app/data/fantasy_pros.db && echo 'YES' || echo 'NO')"
-if [ -f "/app/data/fantasy_pros.db" ]; then
-    echo "Database size: $(ls -lh /app/data/fantasy_pros.db | awk '{print $5}')"
-    echo "Draft sessions count: $(python -c "
-import sqlite3
-try:
-    conn = sqlite3.connect('/app/data/fantasy_pros.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM draft_sessions')
-    print(cursor.fetchone()[0])
-    conn.close()
-except Exception as e:
-    print('Error:', e)
-" 2>/dev/null || echo 'Query failed')"
-fi
-echo "Volume mount info: $(df -h /app/data 2>/dev/null || echo 'No volume info available')"
 echo "=================="
 
 # Start the app

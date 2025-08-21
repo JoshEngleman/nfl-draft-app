@@ -475,11 +475,21 @@ def display_draft_manager():
             if st.button("✅ Confirm Bulk Delete", type="primary"):
                 deleted_count = 0
                 failed_count = 0
+                current_session_deleted = False
+                
                 for session_id in selected_for_bulk:
                     if dm.delete_draft_session(session_id):
                         deleted_count += 1
+                        # Check if we deleted the current session
+                        if st.session_state.get('current_session_id') == session_id:
+                            current_session_deleted = True
                     else:
                         failed_count += 1
+                
+                # Clear current session if it was deleted
+                if current_session_deleted:
+                    st.session_state.current_session_id = None
+                    st.session_state.draft_manager = None
                 
                 if deleted_count > 0:
                     st.success(f"✅ Successfully deleted {deleted_count} draft session(s)")
@@ -702,6 +712,16 @@ def display_draft_board():
     
     dm = st.session_state.draft_manager
     session = dm.get_draft_session(st.session_state.current_session_id)
+    
+    # Check if session exists (might have been deleted)
+    if not session:
+        st.error("❌ Draft session no longer exists. It may have been deleted.")
+        st.info("Please create a new draft or load an existing one from Settings.")
+        # Clear the invalid session
+        st.session_state.current_session_id = None
+        st.session_state.draft_manager = None
+        return
+    
     picks_df = dm.get_draft_picks(st.session_state.current_session_id)
     current_pick_info = dm.get_current_pick_info(st.session_state.current_session_id)
     
@@ -800,6 +820,17 @@ def display_player_search():
         return
     
     dm = st.session_state.draft_manager
+    
+    # Check if session still exists (might have been deleted)
+    session = dm.get_draft_session(st.session_state.current_session_id)
+    if not session:
+        st.error("❌ Draft session no longer exists. It may have been deleted.")
+        st.info("Please create a new draft or load an existing one from Settings.")
+        # Clear the invalid session
+        st.session_state.current_session_id = None
+        st.session_state.draft_manager = None
+        return
+    
     current_pick_info = dm.get_current_pick_info(st.session_state.current_session_id)
     
     if not current_pick_info:

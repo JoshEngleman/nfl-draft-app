@@ -360,7 +360,7 @@ def display_detailed_status(data_status: dict):
             """, unsafe_allow_html=True)
         
         with col2:
-            if db_info['last_modified']:
+            if db_info['last_modified'] and isinstance(db_info['last_modified'], datetime):
                 age = datetime.now() - db_info['last_modified']
                 st.markdown(f"""
                 <div class="metric-row">
@@ -370,6 +370,13 @@ def display_detailed_status(data_status: dict):
                 <div class="metric-row">
                     <span class="metric-label">Age:</span>
                     <span class="metric-value">{age.days} days, {age.seconds//3600} hours</span>
+                </div>
+                """, unsafe_allow_html=True)
+            elif db_info['last_modified']:
+                st.markdown(f"""
+                <div class="metric-row">
+                    <span class="metric-label">Last Modified:</span>
+                    <span class="metric-value">{db_info['last_modified']}</span>
                 </div>
                 """, unsafe_allow_html=True)
     else:

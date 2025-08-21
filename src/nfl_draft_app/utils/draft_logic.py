@@ -589,7 +589,6 @@ def calculate_replacement_values():
             else:
                 replacement_values[position] = 0.0
         except Exception as e:
-            print(f"Error calculating replacement value for {position}: {e}")
             replacement_values[position] = 0.0
     
     return replacement_values

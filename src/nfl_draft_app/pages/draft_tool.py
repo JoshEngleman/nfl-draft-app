@@ -690,6 +690,13 @@ def display_player_search():
     
     replacement_levels = st.session_state.replacement_levels
     
+    # Check if replacement values are still 0 and force recalculation
+    if replacement_levels and all(level.get('value', 0) == 0.0 for level in replacement_levels.values()):
+        st.info("🔄 Calculating replacement values for the first time...")
+        calculate_replacement_values()
+        st.session_state.replacement_levels = get_replacement_levels()
+        replacement_levels = st.session_state.replacement_levels
+    
     # Calculate value scores
     available_players['value_score'] = available_players.apply(
         lambda row: calculate_value_score(row['projection'], row['position'], replacement_levels), 

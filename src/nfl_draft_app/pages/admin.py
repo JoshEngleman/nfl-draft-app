@@ -689,7 +689,7 @@ def display_debug_diagnostics():
                     SELECT fantasy_points 
                     FROM qb_projections 
                     WHERE fantasy_points IS NOT NULL
-                    ORDER BY fantasy_points DESC 
+                    ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
                     LIMIT 1 OFFSET 21
                 '''
                 qb_result = pd.read_sql_query(qb_query, engine)
@@ -707,13 +707,13 @@ def display_debug_diagnostics():
                 st.info(f"QB Count: {qb_count} players with fantasy_points")
                 
                 # Show top 5 QBs for reference
-                top_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY fantasy_points DESC LIMIT 5"
+                top_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY CAST(fantasy_points AS NUMERIC) DESC LIMIT 5"
                 top_qbs = pd.read_sql_query(top_qb_query, engine)
                 st.markdown("**Top 5 QBs:**")
                 st.dataframe(top_qbs, use_container_width=True)
                 
                 # Show 20th-25th QBs
-                mid_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY fantasy_points DESC LIMIT 5 OFFSET 19"
+                mid_qb_query = "SELECT player, fantasy_points FROM qb_projections WHERE fantasy_points IS NOT NULL ORDER BY CAST(fantasy_points AS NUMERIC) DESC LIMIT 5 OFFSET 19"
                 mid_qbs = pd.read_sql_query(mid_qb_query, engine)
                 st.markdown("**QBs ranked 20-24 (including our 22nd):**")
                 st.dataframe(mid_qbs, use_container_width=True)

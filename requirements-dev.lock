@@ -68,6 +68,8 @@ playwright==1.54.0
     # via nfl-draft-app
 protobuf==6.31.1
     # via streamlit
+psycopg2-binary==2.9.10
+    # via nfl-draft-app
 pyarrow==21.0.0
     # via streamlit
 pydeck==0.9.1

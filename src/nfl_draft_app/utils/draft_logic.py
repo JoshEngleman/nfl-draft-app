@@ -566,7 +566,7 @@ def calculate_replacement_values():
                 SELECT fantasy_points 
                 FROM {table_name} 
                 WHERE fantasy_points IS NOT NULL
-                ORDER BY fantasy_points DESC 
+                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         else:
@@ -576,7 +576,7 @@ def calculate_replacement_values():
                 SELECT fantasy_points 
                 FROM {table_name} 
                 WHERE fantasy_points IS NOT NULL
-                ORDER BY fantasy_points DESC 
+                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         
@@ -603,6 +603,8 @@ def calculate_replacement_values():
             
             if not result_df.empty:
                 replacement_value = result_df.iloc[0]['fantasy_points']
+                # Convert NumPy types to native Python float for PostgreSQL compatibility
+                replacement_value = float(replacement_value)
                 replacement_values[position] = replacement_value
                 print(f"DEBUGGING: {position} - Successfully calculated: {replacement_value}")
                 

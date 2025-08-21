@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import datetime
 from typing import Dict, Optional
-from .database import create_database_engine
+from .database import get_database_engine
 
 # PostgreSQL-only configuration
 RAW_DATA_DIR = "data/raw_projections/"
@@ -30,7 +30,7 @@ def get_data_status() -> Dict:
 def get_database_status() -> Dict:
     """Get PostgreSQL database connection information."""
     try:
-        engine = create_database_engine()
+        engine = get_database_engine()  # Use shared engine
         with engine.connect() as conn:
             from sqlalchemy import text
             # Test connection with a simple query
@@ -97,7 +97,7 @@ def get_raw_files_status() -> Dict:
 def get_table_status() -> Dict:
     """Get database table information."""
     try:
-        engine = create_database_engine()
+        engine = get_database_engine()  # Use shared engine
     except Exception as e:
         return {'status': 'missing', 'error': str(e), 'tables': {}}
     
@@ -178,7 +178,7 @@ def validate_data_integrity() -> Dict:
     }
     
     try:
-        engine = create_database_engine()
+        engine = get_database_engine()  # Use shared engine
     except Exception as e:
         validation_results['errors'].append(f"PostgreSQL connection failed: {str(e)}")
         validation_results['status'] = 'error'

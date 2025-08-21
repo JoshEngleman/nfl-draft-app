@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
-from utils.database import create_database_engine
+from utils.database import get_database_engine
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
 import sys
 import os
@@ -92,7 +92,7 @@ div[data-testid="stAppViewContainer"] {
 
 # --- Database Connection ---
 # Automatically detects PostgreSQL (Railway) or SQLite (local)
-engine = create_database_engine()
+engine = get_database_engine()  # Use shared engine
 
 @st.cache_data
 def load_data(table_name):

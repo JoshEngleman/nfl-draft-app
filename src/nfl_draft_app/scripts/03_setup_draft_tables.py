@@ -5,13 +5,13 @@ from datetime import datetime
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from nfl_draft_app.utils.database import create_database_engine
+from nfl_draft_app.utils.database import get_database_engine
 from sqlalchemy import text
 
 def create_draft_tables():
     """Creates the database tables needed for draft functionality in PostgreSQL."""
     
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     
     print("Creating draft tables in PostgreSQL...")
     
@@ -111,7 +111,7 @@ def create_draft_tables():
 
 def insert_default_replacement_levels():
     """Insert default replacement level values for each position."""
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     
     default_levels = {
         'QB': {'rank': 15, 'value': 0.0},

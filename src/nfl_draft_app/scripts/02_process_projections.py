@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from nfl_draft_app.utils.database import create_database_engine
+from nfl_draft_app.utils.database import get_database_engine
 
 # Configuration
 RAW_FILES_DIR = "data/raw_projections/"
@@ -163,7 +163,7 @@ def main():
     print("Starting data processing...")
     
     # Clear all data tables at the start to ensure fresh data
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     tables_to_clear = ['overall_adp', 'qb_projections', 'rb_projections', 'wr_projections', 
                       'te_projections', 'k_projections', 'dst_projections']
     

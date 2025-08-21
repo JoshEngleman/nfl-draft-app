@@ -389,7 +389,8 @@ def create_new_draft():
             config_id = dm.create_draft_config(draft_name, num_teams, num_rounds, draft_type)
             session_id = dm.create_draft_session(config_id, session_name, team_names)
             
-            st.session_state.draft_manager = dm
+            # Create a new DraftManager instance with the correct session_id
+            st.session_state.draft_manager = DraftManager(session_id)
             st.session_state.current_session_id = session_id
             st.success(f"Draft created successfully! Session ID: {session_id}")
             st.rerun()
@@ -429,8 +430,10 @@ def load_existing_draft():
                 st.write(f"{progress:.1%} complete")
                 
                 if st.button(f"Load Draft", key=f"load_{session['id']}"):
-                    if dm.load_draft_session(session['id']):
-                        st.session_state.draft_manager = dm
+                    # Create a new DraftManager instance with the correct session_id
+                    session_dm = DraftManager(session['id'])
+                    if session_dm.load_draft_session(session['id']):
+                        st.session_state.draft_manager = session_dm
                         st.session_state.current_session_id = session['id']
                         st.success(f"Loaded draft session: {session['name']}")
                         st.rerun()

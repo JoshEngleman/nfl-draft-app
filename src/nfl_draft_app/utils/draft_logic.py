@@ -6,7 +6,7 @@ import re
 from typing import List, Tuple, Dict, Optional
 from datetime import datetime
 from sqlalchemy import text
-from .database import create_database_engine
+from .database import get_database_engine
 
 # PostgreSQL-only, no more SQLite compatibility
 
@@ -65,7 +65,7 @@ def generate_fantasypros_url(player_name: str, position: str, team: str = None) 
 class DraftManager:
     def __init__(self, session_id: int = None):
         self.session_id = session_id
-        self.engine = create_database_engine()
+        self.engine = get_database_engine()  # Use shared engine instance
         
     def _execute_sql(self, query: str, params: Dict = None):
         """Execute SQL query and return result."""
@@ -520,7 +520,7 @@ class DraftManager:
 
 def get_replacement_levels() -> Dict[str, Dict]:
     """Get replacement level data for all positions."""
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     query = 'SELECT position, replacement_rank, replacement_value FROM replacement_levels'
     df = pd.read_sql_query(query, engine)
     
@@ -543,7 +543,7 @@ def update_replacement_levels(levels: Dict[str, int]):
 
 def calculate_replacement_values():
     """Calculate actual replacement values based on current projections and ranks."""
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     
     # Get replacement ranks
     ranks_df = pd.read_sql_query('SELECT position, replacement_rank FROM replacement_levels', engine)
@@ -604,7 +604,7 @@ def calculate_value_score(projection: float, position: str, replacement_levels: 
 
 def get_draft_settings(session_id: int) -> Dict:
     """Get draft settings for a session."""
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     query = 'SELECT * FROM draft_settings WHERE session_id = :session_id'
     from sqlalchemy import text
     df = pd.read_sql_query(text(query), engine, params={"session_id": session_id})
@@ -616,7 +616,7 @@ def get_draft_settings(session_id: int) -> Dict:
 
 def update_draft_settings(session_id: int, my_team_number: int = None, notes: str = None):
     """Update draft settings for a session."""
-    engine = create_database_engine()
+    engine = get_database_engine()  # Use shared engine
     query = '''
         INSERT INTO draft_settings (session_id, my_team_number, notes, updated_at)
         VALUES (:session_id, :my_team_number, :notes, CURRENT_TIMESTAMP)

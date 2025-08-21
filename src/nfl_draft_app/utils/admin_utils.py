@@ -198,7 +198,7 @@ def validate_data_integrity() -> Dict:
         
         for table, min_count in expected_minimums.items():
             try:
-                df = pd.read_sql_query(f"SELECT COUNT(*) as count FROM {table}", conn)
+                df = pd.read_sql_query(f"SELECT COUNT(*) as count FROM {table}", engine)
                 actual_count = df.iloc[0]['count']
                 
                 check_result = {
@@ -254,6 +254,10 @@ def validate_data_integrity() -> Dict:
             except Exception as e:
                 validation_results['errors'].append(f"{table} column check: {str(e)}")
                 validation_results['status'] = 'error'
+    
+    except Exception as e:
+        validation_results['errors'].append(f"General validation error: {str(e)}")
+        validation_results['status'] = 'error'
     
     return validation_results
 

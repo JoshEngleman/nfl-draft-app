@@ -114,12 +114,12 @@ def insert_default_replacement_levels():
     engine = get_database_engine()  # Use shared engine
     
     default_levels = {
-        'QB': {'rank': 15, 'value': 0.0},
-        'RB': {'rank': 30, 'value': 0.0},
-        'WR': {'rank': 36, 'value': 0.0},
-        'TE': {'rank': 15, 'value': 0.0},
-        'K': {'rank': 15, 'value': 0.0},
-        'DST': {'rank': 15, 'value': 0.0}
+        'QB': {'rank': 22, 'value': 0.0},
+        'RB': {'rank': 56, 'value': 0.0},
+        'WR': {'rank': 67, 'value': 0.0},
+        'TE': {'rank': 19, 'value': 0.0},
+        'K': {'rank': 1, 'value': 0.0},
+        'DST': {'rank': 1, 'value': 0.0}
     }
     
     with engine.connect() as conn:

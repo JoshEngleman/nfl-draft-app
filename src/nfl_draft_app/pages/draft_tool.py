@@ -364,6 +364,10 @@ if (st.session_state.current_session_id is None and
         st.session_state.draft_manager = DraftManager(session_id)
         st.session_state.current_session_id = session_id
         
+        # Calculate replacement values for this new draft
+        calculate_replacement_values()
+        st.session_state.replacement_levels = get_replacement_levels()
+        
     except Exception as e:
         # Fall back to showing creation interface
         st.error(f"Failed to create draft: {e}")
@@ -1432,6 +1436,10 @@ def display_settings():
                 # Set up the new draft
                 st.session_state.draft_manager = DraftManager(session_id)
                 st.session_state.current_session_id = session_id
+                
+                # Calculate replacement values for this new draft
+                calculate_replacement_values()
+                st.session_state.replacement_levels = get_replacement_levels()
                 
                 st.success(f"✅ Created new draft: {draft_name}")
                 st.rerun()

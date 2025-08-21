@@ -396,7 +396,12 @@ def create_new_draft():
             # Create a new DraftManager instance with the correct session_id
             st.session_state.draft_manager = DraftManager(session_id)
             st.session_state.current_session_id = session_id
-            st.success(f"Draft created successfully! Session ID: {session_id}")
+            
+            # Clear any creation/loading flags
+            st.session_state.show_draft_creator = False
+            st.session_state.show_draft_loader = False
+            
+            st.success(f"✅ Draft created successfully! Session ID: {session_id}")
             st.rerun()
 
 def load_existing_draft():
@@ -439,7 +444,12 @@ def load_existing_draft():
                     if session_dm.load_draft_session(session['id']):
                         st.session_state.draft_manager = session_dm
                         st.session_state.current_session_id = session['id']
-                        st.success(f"Loaded draft session: {session['name']}")
+                        
+                        # Clear any creation/loading flags
+                        st.session_state.show_draft_creator = False
+                        st.session_state.show_draft_loader = False
+                        
+                        st.success(f"✅ Loaded draft session: {session['name']}")
                         st.rerun()
                     else:
                         st.error("Failed to load draft session")
@@ -1449,6 +1459,12 @@ def display_settings():
     
     dm = st.session_state.draft_manager
     session = dm.get_draft_session(st.session_state.current_session_id)
+    
+    # Handle case where session data is None or corrupted
+    if not session or 'num_teams' not in session:
+        st.error("⚠️ Session data is corrupted or missing. Please create a new draft or load a different one.")
+        return
+    
     team_names = dm.get_team_names(st.session_state.current_session_id)
     current_settings = get_draft_settings(st.session_state.current_session_id)
     current_replacement_levels = get_replacement_levels()

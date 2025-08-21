@@ -105,10 +105,10 @@ class DraftManager:
     
     def create_draft_session(self, config_id: int, session_name: str = None, team_names: List[str] = None) -> int:
         """Create a new draft session and return its ID."""
-        # Create session using PostgreSQL RETURNING clause
+        # Create session using PostgreSQL RETURNING clause with explicit timestamps
         session_query = '''
-            INSERT INTO draft_sessions (config_id, name)
-            VALUES (:config_id, :name)
+            INSERT INTO draft_sessions (config_id, name, created_at, updated_at)
+            VALUES (:config_id, :name, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             RETURNING id
         '''
         result = self._execute_sql(session_query, {"config_id": config_id, "name": session_name})

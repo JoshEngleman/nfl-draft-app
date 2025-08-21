@@ -347,11 +347,13 @@ st.write(f"  - current_session_id: {st.session_state.current_session_id}")
 st.write(f"  - draft_manager: {st.session_state.draft_manager}")
 st.write(f"  - show_draft_creator: {st.session_state.get('show_draft_creator', False)}")
 st.write(f"  - show_draft_loader: {st.session_state.get('show_draft_loader', False)}")
+st.write(f"  - prevent_auto_load: {st.session_state.get('prevent_auto_load', False)}")
 
 if (st.session_state.current_session_id is None and 
     st.session_state.draft_manager is None and 
     not st.session_state.get('show_draft_creator', False) and
-    not st.session_state.get('show_draft_loader', False)):
+    not st.session_state.get('show_draft_loader', False) and
+    not st.session_state.get('prevent_auto_load', False)):
     st.write("🔍 DEBUG: AUTO-LOADING TRIGGERED!")
     try:
         dm = DraftManager()
@@ -368,6 +370,11 @@ if (st.session_state.current_session_id is None and
         pass
 else:
     st.write("🔍 DEBUG: AUTO-LOADING SKIPPED (conditions not met)")
+
+# Clear the prevent_auto_load flag after checking (so it only prevents one auto-load)
+if st.session_state.get('prevent_auto_load', False):
+    st.session_state.prevent_auto_load = False
+    st.write("🔍 DEBUG: Cleared prevent_auto_load flag")
 
 def create_new_draft():
     """Interface for creating a new draft configuration and session."""
@@ -423,9 +430,10 @@ def create_new_draft():
                 st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
                 st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
                 
-                # Clear any creation/loading flags
+                # Clear any creation/loading flags and prevent auto-loading
                 st.session_state.show_draft_creator = False
                 st.session_state.show_draft_loader = False
+                st.session_state.prevent_auto_load = True  # Prevent auto-loading on next run
                 
                 st.success(f"✅ Draft created successfully! Session ID: {session_id}")
                 st.rerun()

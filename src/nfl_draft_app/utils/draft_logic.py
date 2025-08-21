@@ -559,9 +559,11 @@ def calculate_replacement_values():
         
         if position == 'DST':
             # DST uses team_name from dst_projections
+            table_name = 'dst_projections'
             query = f'''
                 SELECT fantasy_points 
-                FROM dst_projections 
+                FROM {table_name} 
+                WHERE fantasy_points IS NOT NULL
                 ORDER BY fantasy_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
@@ -571,11 +573,25 @@ def calculate_replacement_values():
             query = f'''
                 SELECT fantasy_points 
                 FROM {table_name} 
+                WHERE fantasy_points IS NOT NULL
                 ORDER BY fantasy_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         
         try:
+            # First check if table exists and has data (non-NULL fantasy_points)
+            count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE fantasy_points IS NOT NULL"
+            count_result = pd.read_sql_query(count_query, engine)
+            row_count = count_result.iloc[0]['count']
+            
+            if row_count == 0:
+                replacement_values[position] = 0.0
+                continue
+            
+            if row_count < rank:
+                replacement_values[position] = 0.0
+                continue
+            
             result_df = pd.read_sql_query(query, engine)
             if not result_df.empty:
                 replacement_value = result_df.iloc[0]['fantasy_points']
@@ -594,7 +610,6 @@ def calculate_replacement_values():
                 replacement_values[position] = 0.0
         except Exception as e:
             replacement_values[position] = 0.0
-    
     return replacement_values
 
 def calculate_value_score(projection: float, position: str, replacement_levels: Dict[str, Dict]) -> float:

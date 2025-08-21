@@ -400,29 +400,38 @@ def create_new_draft():
         submitted = st.form_submit_button("Create Draft")
         
         if submitted and draft_name:
-            # Create draft configuration
-            dm = DraftManager()
-            config_id = dm.create_draft_config(draft_name, num_teams, num_rounds, draft_type)
-            session_id = dm.create_draft_session(config_id, session_name, team_names)
-            
-            # DEBUG: Show what we created
-            st.write(f"🔍 DEBUG: Created new draft with session_id: {session_id}")
-            st.write(f"🔍 DEBUG: Config ID: {config_id}")
-            
-            # Create a new DraftManager instance with the correct session_id
-            st.session_state.draft_manager = DraftManager(session_id)
-            st.session_state.current_session_id = session_id
-            
-            # DEBUG: Verify session state
-            st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
-            st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
-            
-            # Clear any creation/loading flags
-            st.session_state.show_draft_creator = False
-            st.session_state.show_draft_loader = False
-            
-            st.success(f"✅ Draft created successfully! Session ID: {session_id}")
-            st.rerun()
+            try:
+                # Create draft configuration
+                st.write("🔍 DEBUG: Starting draft creation...")
+                dm = DraftManager()
+                st.write("🔍 DEBUG: DraftManager created")
+                
+                config_id = dm.create_draft_config(draft_name, num_teams, num_rounds, draft_type)
+                st.write(f"🔍 DEBUG: Config created with ID: {config_id}")
+                
+                session_id = dm.create_draft_session(config_id, session_name, team_names)
+                st.write(f"🔍 DEBUG: Session created with ID: {session_id}")
+                
+                # Create a new DraftManager instance with the correct session_id
+                st.session_state.draft_manager = DraftManager(session_id)
+                st.session_state.current_session_id = session_id
+                
+                # DEBUG: Verify session state
+                st.write(f"🔍 DEBUG: Set session_state.current_session_id to: {st.session_state.current_session_id}")
+                st.write(f"🔍 DEBUG: Set session_state.draft_manager with session_id: {st.session_state.draft_manager.session_id}")
+                
+                # Clear any creation/loading flags
+                st.session_state.show_draft_creator = False
+                st.session_state.show_draft_loader = False
+                
+                st.success(f"✅ Draft created successfully! Session ID: {session_id}")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ DRAFT CREATION FAILED: {str(e)}")
+                st.write(f"🔍 DEBUG: Exception details: {type(e).__name__}: {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
 def load_existing_draft():
     """Interface for loading an existing draft session."""

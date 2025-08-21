@@ -1,14 +1,14 @@
 """
 Draft logic utilities for managing draft order, pick calculations, and draft flow.
 """
-import sqlite3
 import pandas as pd
 import re
 from typing import List, Tuple, Dict, Optional
 from datetime import datetime
-from .database import create_database_engine, get_database_config, get_db_file_path
+from sqlalchemy import text
+from .database import create_database_engine
 
-DB_FILE = get_db_file_path()  # Legacy compatibility
+# PostgreSQL-only, no more SQLite compatibility
 
 def generate_fantasypros_url(player_name: str, position: str, team: str = None) -> str:
     """Generate FantasyPros player profile URL.
@@ -65,102 +65,113 @@ def generate_fantasypros_url(player_name: str, position: str, team: str = None) 
 class DraftManager:
     def __init__(self, session_id: int = None):
         self.session_id = session_id
-        # Don't store connection as instance variable to avoid threading issues
+        self.engine = create_database_engine()
         
-    def _get_connection(self):
-        """Get a new database connection for each operation."""
-        return sqlite3.connect(DB_FILE)
+    def _execute_sql(self, query: str, params: Dict = None):
+        """Execute SQL query and return result."""
+        with self.engine.connect() as conn:
+            if params:
+                result = conn.execute(text(query), params)
+            else:
+                result = conn.execute(text(query))
+            conn.commit()
+            return result
+    
+    def _fetch_dataframe(self, query: str, params: Dict = None):
+        """Execute SQL query and return pandas DataFrame."""
+        return pd.read_sql_query(query, self.engine, params=params)
+    
+    def get_all_draft_sessions(self) -> List[Dict]:
+        """Get all draft sessions ordered by most recent."""
+        query = '''
+            SELECT ds.id, ds.name, ds.status, ds.created_at, ds.updated_at,
+                   dc.name as config_name, dc.num_teams, dc.num_rounds, dc.draft_type
+            FROM draft_sessions ds
+            JOIN draft_configs dc ON ds.config_id = dc.id
+            ORDER BY ds.updated_at DESC
+        '''
+        df = self._fetch_dataframe(query)
+        return df.to_dict('records')
     
     def create_draft_config(self, name: str, num_teams: int, num_rounds: int, draft_type: str) -> int:
         """Create a new draft configuration and return its ID."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        query = '''
             INSERT INTO draft_configs (name, num_teams, num_rounds, draft_type)
-            VALUES (?, ?, ?, ?)
-        ''', (name, num_teams, num_rounds, draft_type))
-        conn.commit()
-        config_id = cursor.lastrowid
-        conn.close()
-        return config_id
+            VALUES (:name, :num_teams, :num_rounds, :draft_type)
+            RETURNING id
+        '''
+        result = self._execute_sql(query, {
+            "name": name, 
+            "num_teams": num_teams, 
+            "num_rounds": num_rounds, 
+            "draft_type": draft_type
+        })
+        return result.fetchone()[0]
     
     def create_draft_session(self, config_id: int, session_name: str = None, team_names: List[str] = None) -> int:
         """Create a new draft session and return its ID."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        # Create session using PostgreSQL RETURNING clause
+        session_query = '''
             INSERT INTO draft_sessions (config_id, name)
-            VALUES (?, ?)
-        ''', (config_id, session_name))
-        session_id = cursor.lastrowid
+            VALUES (:config_id, :name)
+            RETURNING id
+        '''
+        result = self._execute_sql(session_query, {"config_id": config_id, "name": session_name})
+        session_id = result.fetchone()[0]
         
         # Insert team names if provided
         if team_names:
             for i, team_name in enumerate(team_names, 1):
-                cursor.execute('''
+                team_query = '''
                     INSERT INTO draft_teams (session_id, team_number, team_name)
-                    VALUES (?, ?, ?)
-                ''', (session_id, i, team_name))
+                    VALUES (:session_id, :team_number, :team_name)
+                '''
+                self._execute_sql(team_query, {
+                    "session_id": session_id, 
+                    "team_number": i, 
+                    "team_name": team_name
+                })
         
-        conn.commit()
-        conn.close()
         self.session_id = session_id
         return session_id
     
     def get_draft_config(self, config_id: int) -> Dict:
         """Get draft configuration details."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM draft_configs WHERE id = ?', (config_id,))
-        row = cursor.fetchone()
-        result = None
-        if row:
-            columns = [description[0] for description in cursor.description]
-            result = dict(zip(columns, row))
-        conn.close()
-        return result
+        query = 'SELECT * FROM draft_configs WHERE id = :config_id'
+        df = self._fetch_dataframe(query, {"config_id": config_id})
+        if len(df) > 0:
+            return df.iloc[0].to_dict()
+        return None
     
     def get_draft_session(self, session_id: int = None) -> Dict:
         """Get draft session details."""
         if session_id is None:
             session_id = self.session_id
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        query = '''
             SELECT ds.*, dc.name as config_name, dc.num_teams, dc.num_rounds, dc.draft_type
             FROM draft_sessions ds
             JOIN draft_configs dc ON ds.config_id = dc.id
-            WHERE ds.id = ?
-        ''', (session_id,))
-        row = cursor.fetchone()
-        result = None
-        if row:
-            columns = [description[0] for description in cursor.description]
-            result = dict(zip(columns, row))
-        conn.close()
-        return result
+            WHERE ds.id = :session_id
+        '''
+        df = self._fetch_dataframe(query, {"session_id": session_id})
+        if len(df) > 0:
+            return df.iloc[0].to_dict()
+        return None
     
     def get_all_draft_sessions(self) -> List[Dict]:
         """Get all draft sessions for loading existing drafts."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        query = '''
             SELECT ds.*, dc.name as config_name, dc.num_teams, dc.num_rounds, dc.draft_type,
                    COUNT(dp.id) as picks_made
             FROM draft_sessions ds
             JOIN draft_configs dc ON ds.config_id = dc.id
             LEFT JOIN draft_picks dp ON ds.id = dp.session_id
-            GROUP BY ds.id
+            GROUP BY ds.id, dc.name, dc.num_teams, dc.num_rounds, dc.draft_type
             ORDER BY ds.updated_at DESC, ds.created_at DESC
-        ''')
-        rows = cursor.fetchall()
-        results = []
-        if rows:
-            columns = [description[0] for description in cursor.description]
-            results = [dict(zip(columns, row)) for row in rows]
-        conn.close()
-        return results
+        '''
+        df = self._fetch_dataframe(query)
+        return df.to_dict('records')
     
     def get_most_recent_session(self) -> Optional[Dict]:
         """Get the most recently updated draft session."""
@@ -181,39 +192,35 @@ class DraftManager:
         if session_id is None:
             session_id = self.session_id
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
+        query = '''
             SELECT team_number, team_name 
             FROM draft_teams 
-            WHERE session_id = ? 
+            WHERE session_id = :session_id 
             ORDER BY team_number
-        ''', (session_id,))
-        
-        team_names = dict(cursor.fetchall())
-        conn.close()
-        return team_names
+        '''
+        df = self._fetch_dataframe(query, {"session_id": session_id})
+        return dict(zip(df['team_number'], df['team_name']))
     
     def update_team_names(self, team_names: List[str], session_id: int = None):
         """Update team names for a session."""
         if session_id is None:
             session_id = self.session_id
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
         # Delete existing team names
-        cursor.execute('DELETE FROM draft_teams WHERE session_id = ?', (session_id,))
+        delete_query = 'DELETE FROM draft_teams WHERE session_id = :session_id'
+        self._execute_sql(delete_query, {"session_id": session_id})
         
         # Insert new team names
         for i, team_name in enumerate(team_names, 1):
-            cursor.execute('''
+            insert_query = '''
                 INSERT INTO draft_teams (session_id, team_number, team_name)
-                VALUES (?, ?, ?)
-            ''', (session_id, i, team_name))
-        
-        conn.commit()
-        conn.close()
+                VALUES (:session_id, :team_number, :team_name)
+            '''
+            self._execute_sql(insert_query, {
+                "session_id": session_id, 
+                "team_number": i, 
+                "team_name": team_name
+            })
     
     def calculate_draft_order(self, num_teams: int, num_rounds: int, draft_type: str) -> List[Tuple[int, int, int]]:
         """
@@ -274,20 +281,28 @@ class DraftManager:
         if not current_pick_info:
             return False
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
         # Record the pick
-        cursor.execute('''
+        insert_query = '''
             INSERT INTO draft_picks 
             (session_id, pick_number, round_number, team_number, player_name, 
              player_team, position, bye_week, adp, projection, value_score, vona_score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            self.session_id, current_pick_info['pick_number'], current_pick_info['round_number'],
-            current_pick_info['team_number'], player_name, player_team, position,
-            bye_week, adp, projection, value_score, vona_score
-        ))
+            VALUES (:session_id, :pick_number, :round_number, :team_number, :player_name, 
+                    :player_team, :position, :bye_week, :adp, :projection, :value_score, :vona_score)
+        '''
+        self._execute_sql(insert_query, {
+            "session_id": self.session_id,
+            "pick_number": current_pick_info['pick_number'],
+            "round_number": current_pick_info['round_number'],
+            "team_number": current_pick_info['team_number'],
+            "player_name": player_name,
+            "player_team": player_team,
+            "position": position,
+            "bye_week": bye_week,
+            "adp": adp,
+            "projection": projection,
+            "value_score": value_score,
+            "vona_score": vona_score
+        })
         
         # Advance to next pick
         next_pick = current_pick_info['pick_number'] + 1
@@ -300,21 +315,26 @@ class DraftManager:
             )
             next_pick_info = draft_order[next_pick - 1]
             
-            cursor.execute('''
+            update_query = '''
                 UPDATE draft_sessions 
-                SET current_pick = ?, current_round = ?, current_team = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (next_pick, next_pick_info[1], next_pick_info[2], self.session_id))
+                SET current_pick = :current_pick, current_round = :current_round, 
+                    current_team = :current_team, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :session_id
+            '''
+            self._execute_sql(update_query, {
+                "current_pick": next_pick,
+                "current_round": next_pick_info[1], 
+                "current_team": next_pick_info[2], 
+                "session_id": self.session_id
+            })
         else:
             # Draft is complete
-            cursor.execute('''
+            complete_query = '''
                 UPDATE draft_sessions 
                 SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (self.session_id,))
-        
-        conn.commit()
-        conn.close()
+                WHERE id = :session_id
+            '''
+            self._execute_sql(complete_query, {"session_id": self.session_id})
         return True
     
     def get_draft_picks(self, session_id: int = None) -> pd.DataFrame:
@@ -322,21 +342,17 @@ class DraftManager:
         if session_id is None:
             session_id = self.session_id
         
-        conn = self._get_connection()
-        df = pd.read_sql_query('''
+        query = '''
             SELECT * FROM draft_picks 
-            WHERE session_id = ? 
+            WHERE session_id = :session_id 
             ORDER BY pick_number
-        ''', conn, params=(session_id,))
-        conn.close()
-        return df
+        '''
+        return self._fetch_dataframe(query, {"session_id": session_id})
     
     def get_available_players(self, session_id: int = None) -> pd.DataFrame:
         """Get all players not yet drafted in this session."""
         if session_id is None:
             session_id = self.session_id
-        
-        conn = self._get_connection()
         
         # Get all players from projections and ADP data
         query = '''
@@ -350,7 +366,7 @@ class DraftManager:
             FROM qb_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             UNION ALL
@@ -365,7 +381,7 @@ class DraftManager:
             FROM rb_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             UNION ALL
@@ -380,7 +396,7 @@ class DraftManager:
             FROM wr_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             UNION ALL
@@ -395,7 +411,7 @@ class DraftManager:
             FROM te_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             UNION ALL
@@ -410,7 +426,7 @@ class DraftManager:
             FROM k_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             UNION ALL
@@ -425,162 +441,162 @@ class DraftManager:
             FROM dst_projections p
             LEFT JOIN overall_adp a ON p.team_name = a.player
             WHERE p.team_name NOT IN (
-                SELECT player_name FROM draft_picks WHERE session_id = ?
+                SELECT player_name FROM draft_picks WHERE session_id = :session_id
             )
             
             ORDER BY adp ASC NULLS LAST
         '''
         
-        df = pd.read_sql_query(query, conn, params=(session_id,) * 6)
-        conn.close()
-        return df
+        return self._fetch_dataframe(query, {"session_id": session_id})
     
     def undo_last_pick(self, session_id: int = None) -> bool:
         """Undo the most recent pick and go back one pick."""
         if session_id is None:
             session_id = self.session_id
         
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
         # Get the most recent pick
-        cursor.execute('''
+        query = '''
             SELECT pick_number, round_number, team_number 
             FROM draft_picks 
-            WHERE session_id = ? 
+            WHERE session_id = :session_id 
             ORDER BY pick_number DESC 
             LIMIT 1
-        ''', (session_id,))
-        
-        last_pick = cursor.fetchone()
-        if not last_pick:
-            conn.close()
+        '''
+        df = self._fetch_dataframe(query, {"session_id": session_id})
+        if len(df) == 0:
             return False
         
+        last_pick = df.iloc[0]
+        
         # Delete the last pick
-        cursor.execute('''
+        delete_query = '''
             DELETE FROM draft_picks 
-            WHERE session_id = ? AND pick_number = ?
-        ''', (session_id, last_pick[0]))
+            WHERE session_id = :session_id AND pick_number = :pick_number
+        '''
+        self._execute_sql(delete_query, {
+            "session_id": session_id, 
+            "pick_number": last_pick['pick_number']
+        })
         
         # Update session to go back to that pick
-        cursor.execute('''
+        update_query = '''
             UPDATE draft_sessions 
-            SET current_pick = ?, current_round = ?, current_team = ?, 
-                status = 'active', updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (last_pick[0], last_pick[1], last_pick[2], session_id))
+            SET current_pick = :current_pick, current_round = :current_round, 
+                current_team = :current_team, status = 'active', updated_at = CURRENT_TIMESTAMP
+            WHERE id = :session_id
+        '''
+        self._execute_sql(update_query, {
+            "current_pick": last_pick['pick_number'],
+            "current_round": last_pick['round_number'],
+            "current_team": last_pick['team_number'],
+            "session_id": session_id
+        })
         
-        conn.commit()
-        conn.close()
         return True
     
     def delete_draft_session(self, session_id: int) -> bool:
         """Delete a draft session and all associated data."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
         try:
-            # Delete in order due to foreign key constraints
-            cursor.execute('DELETE FROM draft_picks WHERE session_id = ?', (session_id,))
-            cursor.execute('DELETE FROM draft_settings WHERE session_id = ?', (session_id,))
-            cursor.execute('DELETE FROM draft_teams WHERE session_id = ?', (session_id,))
-            
             # Get config_id before deleting the session
-            cursor.execute('SELECT config_id FROM draft_sessions WHERE id = ?', (session_id,))
-            config_result = cursor.fetchone()
-            config_id = config_result[0] if config_result else None
+            config_query = 'SELECT config_id FROM draft_sessions WHERE id = :session_id'
+            config_df = self._fetch_dataframe(config_query, {"session_id": session_id})
+            config_id = config_df.iloc[0]['config_id'] if len(config_df) > 0 else None
+            
+            # Delete in order due to foreign key constraints
+            self._execute_sql('DELETE FROM draft_picks WHERE session_id = :session_id', {"session_id": session_id})
+            self._execute_sql('DELETE FROM draft_settings WHERE session_id = :session_id', {"session_id": session_id})
+            self._execute_sql('DELETE FROM draft_teams WHERE session_id = :session_id', {"session_id": session_id})
             
             # Delete the session
-            cursor.execute('DELETE FROM draft_sessions WHERE id = ?', (session_id,))
+            self._execute_sql('DELETE FROM draft_sessions WHERE id = :session_id', {"session_id": session_id})
             
             # Check if this config is used by other sessions, if not, delete it
             if config_id:
-                cursor.execute('SELECT COUNT(*) FROM draft_sessions WHERE config_id = ?', (config_id,))
-                remaining_sessions = cursor.fetchone()[0]
+                count_query = 'SELECT COUNT(*) as count FROM draft_sessions WHERE config_id = :config_id'
+                count_df = self._fetch_dataframe(count_query, {"config_id": config_id})
+                remaining_sessions = count_df.iloc[0]['count']
                 if remaining_sessions == 0:
-                    cursor.execute('DELETE FROM draft_configs WHERE id = ?', (config_id,))
+                    self._execute_sql('DELETE FROM draft_configs WHERE id = :config_id', {"config_id": config_id})
             
-            conn.commit()
-            conn.close()
             return True
             
         except Exception as e:
-            conn.rollback()
-            conn.close()
             return False
 
 def get_replacement_levels() -> Dict[str, Dict]:
     """Get replacement level data for all positions."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('SELECT position, replacement_rank, replacement_value FROM replacement_levels')
+    engine = create_database_engine()
+    query = 'SELECT position, replacement_rank, replacement_value FROM replacement_levels'
+    df = pd.read_sql_query(query, engine)
+    
     levels = {}
-    for row in cursor.fetchall():
-        levels[row[0]] = {
-            'rank': row[1],
-            'value': row[2]
+    for _, row in df.iterrows():
+        levels[row['position']] = {
+            'rank': row['replacement_rank'],
+            'value': row['replacement_value']
         }
-    conn.close()
     return levels
 
 def update_replacement_levels(levels: Dict[str, int]):
     """Update replacement level ranks for all positions."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
     for position, rank in levels.items():
-        cursor.execute('''
+        execute_query('''
             UPDATE replacement_levels 
             SET replacement_rank = ?, updated_at = CURRENT_TIMESTAMP 
             WHERE position = ?
         ''', (rank, position))
-    conn.commit()
-    conn.close()
 
 def calculate_replacement_values():
     """Calculate actual replacement values based on current projections and ranks."""
-    conn = sqlite3.connect(DB_FILE)
+    engine = create_database_engine()
     
     # Get replacement ranks
-    cursor = conn.cursor()
-    cursor.execute('SELECT position, replacement_rank FROM replacement_levels')
-    replacement_ranks = dict(cursor.fetchall())
-    
+    ranks_df = pd.read_sql_query('SELECT position, replacement_rank FROM replacement_levels', engine)
     replacement_values = {}
     
-    for position, rank in replacement_ranks.items():
+    for _, row in ranks_df.iterrows():
+        position = row['position']
+        rank = row['replacement_rank']
+        
         if position == 'DST':
             # DST uses team_name from dst_projections
-            cursor.execute('''
+            query = f'''
                 SELECT fantasy_points 
                 FROM dst_projections 
                 ORDER BY fantasy_points DESC 
-                LIMIT 1 OFFSET ?
-            ''', (rank - 1,))
+                LIMIT 1 OFFSET {rank - 1}
+            '''
         else:
             # Other positions use standard projections tables
             table_name = f"{position.lower()}_projections"
-            cursor.execute(f'''
+            query = f'''
                 SELECT fantasy_points 
                 FROM {table_name} 
                 ORDER BY fantasy_points DESC 
-                LIMIT 1 OFFSET ?
-            ''', (rank - 1,))
+                LIMIT 1 OFFSET {rank - 1}
+            '''
         
-        result = cursor.fetchone()
-        if result:
-            replacement_values[position] = result[0]
-            # Update the database with calculated value
-            cursor.execute('''
-                UPDATE replacement_levels 
-                SET replacement_value = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE position = ?
-            ''', (result[0], position))
-        else:
+        try:
+            result_df = pd.read_sql_query(query, engine)
+            if not result_df.empty:
+                replacement_value = result_df.iloc[0]['fantasy_points']
+                replacement_values[position] = replacement_value
+                
+                # Update the database with calculated value
+                update_query = '''
+                    UPDATE replacement_levels 
+                    SET replacement_value = :value, updated_at = CURRENT_TIMESTAMP 
+                    WHERE position = :position
+                '''
+                with engine.connect() as conn:
+                    conn.execute(text(update_query), {"value": replacement_value, "position": position})
+                    conn.commit()
+            else:
+                replacement_values[position] = 0.0
+        except Exception as e:
+            print(f"Error calculating replacement value for {position}: {e}")
             replacement_values[position] = 0.0
     
-    conn.commit()
-    conn.close()
     return replacement_values
 
 def calculate_value_score(projection: float, position: str, replacement_levels: Dict[str, Dict]) -> float:
@@ -593,27 +609,31 @@ def calculate_value_score(projection: float, position: str, replacement_levels: 
 
 def get_draft_settings(session_id: int) -> Dict:
     """Get draft settings for a session."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM draft_settings WHERE session_id = ?', (session_id,))
-    row = cursor.fetchone()
-    result = None
-    if row:
-        columns = [description[0] for description in cursor.description]
-        result = dict(zip(columns, row))
-    conn.close()
-    return result or {}
+    engine = create_database_engine()
+    query = 'SELECT * FROM draft_settings WHERE session_id = :session_id'
+    df = pd.read_sql_query(query, engine, params={"session_id": session_id})
+    
+    if len(df) > 0:
+        return df.iloc[0].to_dict()
+    
+    return {'my_team_number': None}
 
 def update_draft_settings(session_id: int, my_team_number: int = None, notes: str = None):
     """Update draft settings for a session."""
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT OR REPLACE INTO draft_settings (session_id, my_team_number, notes, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ''', (session_id, my_team_number, notes))
-    conn.commit()
-    conn.close()
+    engine = create_database_engine()
+    query = '''
+        INSERT INTO draft_settings (session_id, my_team_number, notes, updated_at)
+        VALUES (:session_id, :my_team_number, :notes, CURRENT_TIMESTAMP)
+        ON CONFLICT (session_id) DO UPDATE SET 
+        my_team_number = :my_team_number, notes = :notes, updated_at = CURRENT_TIMESTAMP
+    '''
+    with engine.connect() as conn:
+        conn.execute(text(query), {
+            "session_id": session_id, 
+            "my_team_number": my_team_number, 
+            "notes": notes
+        })
+        conn.commit()
 
 def calculate_vona_scores(session_id: int, available_players: pd.DataFrame) -> pd.DataFrame:
     """Calculate VONA (Value Over Next Available) scores for all available players."""

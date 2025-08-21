@@ -4,14 +4,14 @@ Admin utilities for managing data pipeline and system monitoring
 """
 
 import os
-import sqlite3
 import pandas as pd
 import subprocess
 import sys
 from datetime import datetime
 from typing import Dict, Optional
+from .database import create_database_engine
 
-DB_FILE = "data/fantasy_pros.db"
+# PostgreSQL-only configuration
 RAW_DATA_DIR = "data/raw_projections/"
 SCRIPTS_DIR = "src/nfl_draft_app/scripts/"
 
@@ -28,27 +28,31 @@ def get_data_status() -> Dict:
     return status
 
 def get_database_status() -> Dict:
-    """Get database file information."""
-    if not os.path.exists(DB_FILE):
+    """Get PostgreSQL database connection information."""
+    try:
+        engine = create_database_engine()
+        with engine.connect() as conn:
+            from sqlalchemy import text
+            # Test connection with a simple query
+            result = conn.execute(text('SELECT 1'))
+            result.fetchone()
+        return {
+            'exists': True,
+            'type': 'PostgreSQL',
+            'size_human': 'N/A (Cloud DB)',
+            'last_modified': 'N/A (Cloud DB)',
+            'status': 'connected'
+        }
+    except Exception as e:
         return {
             'exists': False,
-            'size': 0,
-            'size_human': '0 B',
-            'last_modified': None,
-            'status': 'missing'
+            'type': 'PostgreSQL',
+            'size_human': 'N/A',
+            'last_modified': 'N/A',
+            'status': 'error',
+            'error': str(e)
         }
-    
-    stat = os.stat(DB_FILE)
-    size = stat.st_size
-    last_modified = datetime.fromtimestamp(stat.st_mtime)
-    
-    return {
-        'exists': True,
-        'size': size,
-        'size_human': format_file_size(size),
-        'last_modified': last_modified,
-        'status': 'healthy' if size > 1000 else 'warning'
-    }
+
 
 def get_raw_files_status() -> Dict:
     """Get status of raw CSV files."""
@@ -92,11 +96,10 @@ def get_raw_files_status() -> Dict:
 
 def get_table_status() -> Dict:
     """Get database table information."""
-    if not os.path.exists(DB_FILE):
-        return {'status': 'missing', 'tables': {}}
-    
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    try:
+        engine = create_database_engine()
+    except Exception as e:
+        return {'status': 'missing', 'error': str(e), 'tables': {}}
     
     tables_status = {}
     expected_tables = [
@@ -108,31 +111,29 @@ def get_table_status() -> Dict:
     for table in expected_tables:
         try:
             # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM {table}")
-            row_count = cursor.fetchone()[0]
+            count_df = pd.read_sql_query(f"SELECT COUNT(*) as count FROM {table}", engine)
+            row_count = count_df.iloc[0]['count']
             
-            # Get column info
-            cursor.execute(f"PRAGMA table_info({table})")
-            columns = cursor.fetchall()
-            
-            # Check for recent data (if table has timestamp column)
-            last_update = None
+            # Get approximate column count (could enhance this later)
             try:
-                cursor.execute(f"SELECT MAX(rowid) FROM {table}")
-                last_update = datetime.now()  # Approximation since we don't have timestamp columns
-            except sqlite3.Error:
-                pass
+                sample_df = pd.read_sql_query(f"SELECT * FROM {table} LIMIT 1", engine)
+                column_count = len(sample_df.columns)
+            except:
+                column_count = 0
+            
+            # PostgreSQL doesn't have rowid, use current timestamp
+            last_update = datetime.now()
             
             tables_status[table] = {
                 'exists': True,
                 'row_count': row_count,
-                'column_count': len(columns),
-                'columns': [col[1] for col in columns],
+                'column_count': column_count,
+                'columns': list(sample_df.columns) if column_count > 0 else [],
                 'last_update': last_update,
                 'status': get_table_health_status(table, row_count)
             }
             
-        except sqlite3.Error as e:
+        except Exception as e:
             tables_status[table] = {
                 'exists': False,
                 'row_count': 0,
@@ -143,7 +144,7 @@ def get_table_status() -> Dict:
                 'error': str(e)
             }
     
-    conn.close()
+
     
     return {
         'tables': tables_status,
@@ -156,9 +157,7 @@ def get_last_update_time() -> Optional[datetime]:
     """Get the most recent update time across all data sources."""
     times = []
     
-    # Check database file
-    if os.path.exists(DB_FILE):
-        times.append(datetime.fromtimestamp(os.path.getmtime(DB_FILE)))
+    # PostgreSQL database doesn't have a file timestamp, skip this check
     
     # Check raw files
     if os.path.exists(RAW_DATA_DIR):
@@ -178,12 +177,12 @@ def validate_data_integrity() -> Dict:
         'errors': []
     }
     
-    if not os.path.exists(DB_FILE):
-        validation_results['errors'].append("Database file missing")
+    try:
+        engine = create_database_engine()
+    except Exception as e:
+        validation_results['errors'].append(f"PostgreSQL connection failed: {str(e)}")
         validation_results['status'] = 'error'
         return validation_results
-    
-    conn = sqlite3.connect(DB_FILE)
     
     try:
         # Check expected record counts for each position
@@ -218,7 +217,7 @@ def validate_data_integrity() -> Dict:
                     if validation_results['status'] == 'healthy':
                         validation_results['status'] = 'warning'
                 
-            except (sqlite3.Error, pd.errors.DatabaseError) as e:
+            except (Exception, pd.errors.DatabaseError) as e:
                 validation_results['errors'].append(f"{table}: {str(e)}")
                 validation_results['status'] = 'error'
         
@@ -235,9 +234,9 @@ def validate_data_integrity() -> Dict:
         
         for table, required_cols in critical_columns.items():
             try:
-                cursor = conn.cursor()
-                cursor.execute(f"PRAGMA table_info({table})")
-                columns = [col[1] for col in cursor.fetchall()]
+                # Get column names from PostgreSQL
+                sample_df = pd.read_sql_query(f"SELECT * FROM {table} LIMIT 1", engine)
+                columns = list(sample_df.columns)
                 
                 missing_cols = [col for col in required_cols if col not in columns]
                 if missing_cols:
@@ -252,12 +251,12 @@ def validate_data_integrity() -> Dict:
                         'status': 'pass'
                     })
                     
-            except sqlite3.Error as e:
+            except Exception as e:
                 validation_results['errors'].append(f"{table} column check: {str(e)}")
                 validation_results['status'] = 'error'
     
     finally:
-        conn.close()
+    
     
     return validation_results
 
@@ -291,7 +290,7 @@ def check_scripts_availability() -> Dict:
 
 def check_dependencies() -> Dict:
     """Check if required dependencies are available."""
-    dependencies = ['pandas', 'sqlite3', 'playwright']
+    dependencies = ['pandas', 'psycopg2-binary', 'playwright']
     deps_status = {}
     
     for dep in dependencies:

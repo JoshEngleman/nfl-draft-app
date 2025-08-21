@@ -3,7 +3,7 @@
 # Create data directory if it doesn't exist
 mkdir -p /app/data
 
-# Check database type and existence
+# Check PostgreSQL database and tables
 DB_EXISTS=false
 if [ -n "$DATABASE_URL" ]; then
     echo "PostgreSQL database detected (Railway). Checking for draft tables..."
@@ -14,55 +14,53 @@ import sys
 sys.path.append('/app/src')
 try:
     from nfl_draft_app.utils.database import create_database_engine
+    from sqlalchemy import text
     engine = create_database_engine()
     with engine.connect() as conn:
-        result = conn.execute('SELECT COUNT(*) FROM draft_sessions LIMIT 1')
-        conn.close()
+        result = conn.execute(text('SELECT COUNT(*) FROM draft_sessions LIMIT 1'))
+        count = result.scalar()
+        print(f'Found {count} draft sessions in PostgreSQL')
+    print('PostgreSQL draft tables exist and are accessible')
     sys.exit(0)
-except:
+except Exception as e:
+    print(f'PostgreSQL draft table check failed: {e}')
     sys.exit(1)
-" 2>/dev/null; then
+"; then
         echo "PostgreSQL database and draft tables found. Skipping initialization."
         DB_EXISTS=true
     else
         echo "PostgreSQL database exists but draft tables missing. Will initialize draft tables only."
     fi
 else
-    # SQLite fallback for local development
-    if [ -f "/app/data/fantasy_pros.db" ]; then
-        echo "SQLite database file found. Checking for draft tables..."
-        if python -c "
-import sqlite3
-import sys
-try:
-    conn = sqlite3.connect('/app/data/fantasy_pros.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM draft_sessions LIMIT 1')
-    conn.close()
-    sys.exit(0)
-except:
-    sys.exit(1)
-" 2>/dev/null; then
-            echo "SQLite database and draft tables found. Skipping initialization."
-            DB_EXISTS=true
-        else
-            echo "SQLite database exists but draft tables missing. Will initialize draft tables only."
-        fi
-    else
-        echo "No database found. Full initialization needed."
-    fi
+    echo "ERROR: DATABASE_URL not found. PostgreSQL database is required."
+    echo "Please add a PostgreSQL database to your Railway project."
+    exit 1
 fi
 
 # Only run initialization if database doesn't exist or needs setup
 if [ "$DB_EXISTS" = false ]; then
-    if [ -n "$DATABASE_URL" ]; then
-        # PostgreSQL mode - only setup draft tables, don't reprocess projection data
-        echo "PostgreSQL detected - setting up draft tables only (preserving existing data)..."
-        python src/nfl_draft_app/scripts/03_setup_draft_tables_pg.py
-        
-        # Only calculate replacement values if needed
-        echo "Calculating replacement values (if needed)..."
-        python -c "
+    # PostgreSQL-only mode
+    echo "PostgreSQL: Setting up draft tables and initializing data..."
+    
+    # Download projection data if needed
+    if [ ! -d "/app/data/raw_projections" ] || [ -z "$(ls -A /app/data/raw_projections)" ]; then
+        echo "Downloading initial projection data..."
+        cd /app
+        python src/nfl_draft_app/scripts/01_download_projections.py
+    fi
+    
+    # Process projection data into PostgreSQL
+    echo "Processing projection data into PostgreSQL..."
+    cd /app
+    python src/nfl_draft_app/scripts/02_process_projections.py
+    
+    # Setup draft tables in PostgreSQL
+    echo "Setting up draft tables in PostgreSQL..."
+    python src/nfl_draft_app/scripts/03_setup_draft_tables_pg.py
+    
+    # Calculate replacement values
+    echo "Calculating replacement values..."
+    python -c "
 import sys
 sys.path.append('/app/src')
 from nfl_draft_app.utils.draft_logic import calculate_replacement_values
@@ -71,40 +69,6 @@ replacement_values = calculate_replacement_values()
 print(f'Replacement values calculated: {replacement_values}')
 print('PostgreSQL initialization complete!')
 "
-    else
-        # SQLite mode - full initialization for local development
-        echo "SQLite mode - full initialization..."
-        
-        # Download data if raw files don't exist
-        if [ ! -d "/app/data/raw_projections" ] || [ -z "$(ls -A /app/data/raw_projections)" ]; then
-            echo "Downloading initial data..."
-            cd /app
-            python src/nfl_draft_app/scripts/01_download_projections.py
-        fi
-        
-        # Process data only if database doesn't exist
-        if [ ! -f "/app/data/fantasy_pros.db" ]; then
-            echo "Processing data..."
-            cd /app
-            python src/nfl_draft_app/scripts/02_process_projections.py
-        fi
-        
-        # Setup draft tables
-        echo "Setting up draft tables..."
-        python src/nfl_draft_app/scripts/03_setup_draft_tables.py
-        
-        # Calculate replacement values
-        echo "Calculating replacement values..."
-        python -c "
-import sys
-sys.path.append('/app/src')
-from nfl_draft_app.utils.draft_logic import calculate_replacement_values
-print('Calculating replacement values...')
-replacement_values = calculate_replacement_values()
-print(f'Replacement values calculated: {replacement_values}')
-print('SQLite initialization complete!')
-"
-    fi
 fi
 
 # Debug: Show database info before starting (FINAL persistence test - should preserve Session 14:41)

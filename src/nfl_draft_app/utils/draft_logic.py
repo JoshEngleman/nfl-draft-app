@@ -534,12 +534,16 @@ def get_replacement_levels() -> Dict[str, Dict]:
 
 def update_replacement_levels(levels: Dict[str, int]):
     """Update replacement level ranks for all positions."""
+    engine = get_database_engine()  # Use shared engine
+    
     for position, rank in levels.items():
-        execute_query('''
-            UPDATE replacement_levels 
-            SET replacement_rank = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE position = ?
-        ''', (rank, position))
+        with engine.connect() as conn:
+            conn.execute(text('''
+                UPDATE replacement_levels 
+                SET replacement_rank = :rank, updated_at = CURRENT_TIMESTAMP 
+                WHERE position = :position
+            '''), {"rank": rank, "position": position})
+            conn.commit()
 
 def calculate_replacement_values():
     """Calculate actual replacement values based on current projections and ranks."""

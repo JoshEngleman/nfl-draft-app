@@ -1,0 +1,36 @@
+[project]
+name = "nfl-draft-app"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "JoshEngleman", email = "jengl867@gmail.com" }
+]
+dependencies = [
+    "playwright>=1.54.0",
+    "pandas>=2.3.1",
+    "python-dotenv>=1.1.1",
+    "sqlalchemy>=2.0.42",
+    "lxml>=6.0.0",
+    "html5lib>=1.1",
+    "beautifulsoup4>=4.13.4",
+    "streamlit>=1.47.1",
+    "watchdog>=6.0.0",
+    "streamlit-aggrid>=1.1.7",
+    "numpy>=2.3.2",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nfl_draft_app"]

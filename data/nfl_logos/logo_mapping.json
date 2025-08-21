@@ -1,0 +1,194 @@
+{
+  "ari": {
+    "team_name": "Arizona Cardinals",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/ARI",
+    "local_path": "data/nfl_logos/ari_logo.png",
+    "nfl_abbr": "ARI"
+  },
+  "atl": {
+    "team_name": "Atlanta Falcons",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/ATL",
+    "local_path": "data/nfl_logos/atl_logo.png",
+    "nfl_abbr": "ATL"
+  },
+  "bal": {
+    "team_name": "Baltimore Ravens",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/BAL",
+    "local_path": "data/nfl_logos/bal_logo.png",
+    "nfl_abbr": "BAL"
+  },
+  "buf": {
+    "team_name": "Buffalo Bills",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/BUF",
+    "local_path": "data/nfl_logos/buf_logo.png",
+    "nfl_abbr": "BUF"
+  },
+  "car": {
+    "team_name": "Carolina Panthers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/CAR",
+    "local_path": "data/nfl_logos/car_logo.png",
+    "nfl_abbr": "CAR"
+  },
+  "chi": {
+    "team_name": "Chicago Bears",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/CHI",
+    "local_path": "data/nfl_logos/chi_logo.png",
+    "nfl_abbr": "CHI"
+  },
+  "cin": {
+    "team_name": "Cincinnati Bengals",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/CIN",
+    "local_path": "data/nfl_logos/cin_logo.png",
+    "nfl_abbr": "CIN"
+  },
+  "cle": {
+    "team_name": "Cleveland Browns",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/CLE",
+    "local_path": "data/nfl_logos/cle_logo.png",
+    "nfl_abbr": "CLE"
+  },
+  "dal": {
+    "team_name": "Dallas Cowboys",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/DAL",
+    "local_path": "data/nfl_logos/dal_logo.png",
+    "nfl_abbr": "DAL"
+  },
+  "den": {
+    "team_name": "Denver Broncos",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/DEN",
+    "local_path": "data/nfl_logos/den_logo.png",
+    "nfl_abbr": "DEN"
+  },
+  "det": {
+    "team_name": "Detroit Lions",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/DET",
+    "local_path": "data/nfl_logos/det_logo.png",
+    "nfl_abbr": "DET"
+  },
+  "gb": {
+    "team_name": "Green Bay Packers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/GB",
+    "local_path": "data/nfl_logos/gb_logo.png",
+    "nfl_abbr": "GB"
+  },
+  "hou": {
+    "team_name": "Houston Texans",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/HOU",
+    "local_path": "data/nfl_logos/hou_logo.png",
+    "nfl_abbr": "HOU"
+  },
+  "ind": {
+    "team_name": "Indianapolis Colts",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/IND",
+    "local_path": "data/nfl_logos/ind_logo.png",
+    "nfl_abbr": "IND"
+  },
+  "jac": {
+    "team_name": "Jacksonville Jaguars",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/JAX",
+    "local_path": "data/nfl_logos/jac_logo.png",
+    "nfl_abbr": "JAX"
+  },
+  "kc": {
+    "team_name": "Kansas City Chiefs",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/KC",
+    "local_path": "data/nfl_logos/kc_logo.png",
+    "nfl_abbr": "KC"
+  },
+  "lv": {
+    "team_name": "Las Vegas Raiders",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/LV",
+    "local_path": "data/nfl_logos/lv_logo.png",
+    "nfl_abbr": "LV"
+  },
+  "lac": {
+    "team_name": "Los Angeles Chargers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/LAC",
+    "local_path": "data/nfl_logos/lac_logo.png",
+    "nfl_abbr": "LAC"
+  },
+  "lar": {
+    "team_name": "Los Angeles Rams",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/LAR",
+    "local_path": "data/nfl_logos/lar_logo.png",
+    "nfl_abbr": "LAR"
+  },
+  "mia": {
+    "team_name": "Miami Dolphins",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/MIA",
+    "local_path": "data/nfl_logos/mia_logo.png",
+    "nfl_abbr": "MIA"
+  },
+  "min": {
+    "team_name": "Minnesota Vikings",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/MIN",
+    "local_path": "data/nfl_logos/min_logo.png",
+    "nfl_abbr": "MIN"
+  },
+  "ne": {
+    "team_name": "New England Patriots",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/NE",
+    "local_path": "data/nfl_logos/ne_logo.png",
+    "nfl_abbr": "NE"
+  },
+  "no": {
+    "team_name": "New Orleans Saints",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/NO",
+    "local_path": "data/nfl_logos/no_logo.png",
+    "nfl_abbr": "NO"
+  },
+  "nyg": {
+    "team_name": "New York Giants",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/NYG",
+    "local_path": "data/nfl_logos/nyg_logo.png",
+    "nfl_abbr": "NYG"
+  },
+  "nyj": {
+    "team_name": "New York Jets",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/NYJ",
+    "local_path": "data/nfl_logos/nyj_logo.png",
+    "nfl_abbr": "NYJ"
+  },
+  "phi": {
+    "team_name": "Philadelphia Eagles",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/PHI",
+    "local_path": "data/nfl_logos/phi_logo.png",
+    "nfl_abbr": "PHI"
+  },
+  "pit": {
+    "team_name": "Pittsburgh Steelers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/PIT",
+    "local_path": "data/nfl_logos/pit_logo.png",
+    "nfl_abbr": "PIT"
+  },
+  "sf": {
+    "team_name": "San Francisco 49ers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/SF",
+    "local_path": "data/nfl_logos/sf_logo.png",
+    "nfl_abbr": "SF"
+  },
+  "sea": {
+    "team_name": "Seattle Seahawks",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/SEA",
+    "local_path": "data/nfl_logos/sea_logo.png",
+    "nfl_abbr": "SEA"
+  },
+  "tb": {
+    "team_name": "Tampa Bay Buccaneers",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/TB",
+    "local_path": "data/nfl_logos/tb_logo.png",
+    "nfl_abbr": "TB"
+  },
+  "ten": {
+    "team_name": "Tennessee Titans",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/TEN",
+    "local_path": "data/nfl_logos/ten_logo.png",
+    "nfl_abbr": "TEN"
+  },
+  "was": {
+    "team_name": "Washington Commanders",
+    "logo_url": "https://static.www.nfl.com/t_headshot_desktop/f_auto/league/api/clubs/logos/WAS",
+    "local_path": "data/nfl_logos/was_logo.png",
+    "nfl_abbr": "WAS"
+  }
+}

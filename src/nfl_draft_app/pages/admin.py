@@ -616,6 +616,121 @@ def execute_full_refresh():
     
     # Data will be refreshed on next page load
 
+def display_debug_diagnostics():
+    """Display debug information for Value/VONA calculation issues."""
+    st.markdown("### 🔍 Replacement Levels Diagnostics")
+    
+    try:
+        from utils.draft_logic import get_replacement_levels, calculate_replacement_values, calculate_value_score
+        from utils.database import get_database_engine
+        import pandas as pd
+        
+        # Test 1: Check replacement_levels table
+        st.markdown("#### 1. Replacement Levels Table")
+        engine = get_database_engine()
+        
+        try:
+            replacement_df = pd.read_sql_query("SELECT * FROM replacement_levels ORDER BY position", engine)
+            st.dataframe(replacement_df, use_container_width=True)
+            
+            if replacement_df.empty:
+                st.error("❌ replacement_levels table is empty!")
+            else:
+                st.success(f"✅ Found {len(replacement_df)} positions in replacement_levels table")
+                
+                # Check if values are all 0
+                zero_values = replacement_df[replacement_df['replacement_value'] == 0.0]
+                if len(zero_values) == len(replacement_df):
+                    st.warning("⚠️ All replacement values are 0.0 - need to calculate!")
+                elif len(zero_values) > 0:
+                    st.warning(f"⚠️ {len(zero_values)} positions have 0.0 replacement values")
+                else:
+                    st.success("✅ All positions have calculated replacement values")
+                    
+        except Exception as e:
+            st.error(f"❌ Error reading replacement_levels table: {e}")
+        
+        # Test 2: Check projection tables data
+        st.markdown("#### 2. Projection Tables Sample Data")
+        projection_tables = ['qb_projections', 'rb_projections', 'wr_projections', 'te_projections']
+        
+        for table in projection_tables:
+            try:
+                # Get count and sample
+                count_df = pd.read_sql_query(f"SELECT COUNT(*) as count FROM {table} WHERE fantasy_points IS NOT NULL", engine)
+                count = count_df.iloc[0]['count']
+                
+                if count > 0:
+                    sample_df = pd.read_sql_query(f"SELECT player, fantasy_points FROM {table} WHERE fantasy_points IS NOT NULL ORDER BY fantasy_points DESC LIMIT 3", engine)
+                    st.markdown(f"**{table}**: {count} players with fantasy_points")
+                    st.dataframe(sample_df, use_container_width=True)
+                else:
+                    st.error(f"❌ {table}: No players with fantasy_points!")
+                    
+            except Exception as e:
+                st.error(f"❌ Error checking {table}: {e}")
+        
+        # Test 3: Manual replacement calculation test
+        st.markdown("#### 3. Manual Replacement Calculation Test")
+        if st.button("🧪 Test Replacement Calculation", key="test_replacement"):
+            with st.spinner("Testing replacement calculation..."):
+                try:
+                    # Capture the calculation result
+                    replacement_values = calculate_replacement_values()
+                    
+                    st.markdown("**Calculation Results:**")
+                    for position, value in replacement_values.items():
+                        if value > 0:
+                            st.success(f"✅ {position}: {value:.2f} points")
+                        else:
+                            st.error(f"❌ {position}: {value} points (failed)")
+                            
+                    # Test get_replacement_levels function
+                    levels = get_replacement_levels()
+                    st.markdown("**Retrieved Levels:**")
+                    st.json(levels)
+                    
+                except Exception as e:
+                    st.error(f"❌ Error in replacement calculation: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+        
+        # Test 4: Value calculation test
+        st.markdown("#### 4. Value Calculation Test")
+        if st.button("🧪 Test Value Calculation", key="test_value"):
+            try:
+                levels = get_replacement_levels()
+                
+                # Test with sample data
+                test_cases = [
+                    ("QB", 25.5),
+                    ("RB", 18.3),
+                    ("WR", 15.7)
+                ]
+                
+                st.markdown("**Value Calculation Tests:**")
+                for position, projection in test_cases:
+                    value = calculate_value_score(projection, position, levels)
+                    
+                    if position in levels:
+                        replacement_val = levels[position].get('value', 0)
+                        expected = projection - replacement_val if replacement_val > 0 else 0.0
+                        st.markdown(f"**{position}**: projection={projection}, replacement={replacement_val}, value={value} (expected={expected})")
+                    else:
+                        st.error(f"❌ {position} not found in replacement levels")
+                        
+            except Exception as e:
+                st.error(f"❌ Error in value calculation test: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+        
+    except ImportError as e:
+        st.error(f"❌ Could not import required modules: {e}")
+    except Exception as e:
+        st.error(f"❌ Unexpected error in diagnostics: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+
 def main():
     """Main admin dashboard."""
     # Header
@@ -651,6 +766,10 @@ def main():
     # Validation results
     with st.expander("✅ Data Validation Results", expanded=False):
         display_validation_results(data_status['validation'])
+    
+    # Debug Section - Value/VONA Calculation Diagnostics
+    with st.expander("🔧 Debug: Value/VONA Calculation Diagnostics", expanded=False):
+        display_debug_diagnostics()
     
     # System information
     with st.expander("🖥️ System Information", expanded=False):

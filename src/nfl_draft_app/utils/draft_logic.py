@@ -553,6 +553,8 @@ def calculate_replacement_values():
     ranks_df = pd.read_sql_query('SELECT position, replacement_rank FROM replacement_levels', engine)
     replacement_values = {}
     
+    print(f"DEBUGGING: Starting replacement calculation for {len(ranks_df)} positions")
+    
     for _, row in ranks_df.iterrows():
         position = row['position']
         rank = row['replacement_rank']
@@ -596,6 +598,7 @@ def calculate_replacement_values():
             if not result_df.empty:
                 replacement_value = result_df.iloc[0]['fantasy_points']
                 replacement_values[position] = replacement_value
+                print(f"DEBUGGING: {position} - Successfully calculated: {replacement_value}")
                 
                 # Update the database with calculated value
                 update_query = '''
@@ -608,16 +611,27 @@ def calculate_replacement_values():
                     conn.commit()
             else:
                 replacement_values[position] = 0.0
+                print(f"DEBUGGING: {position} - Query returned empty result")
         except Exception as e:
             replacement_values[position] = 0.0
+            print(f"DEBUGGING: {position} - Exception occurred: {e}")
+    
+    print(f"DEBUGGING: Final replacement values: {replacement_values}")
     return replacement_values
 
 def calculate_value_score(projection: float, position: str, replacement_levels: Dict[str, Dict]) -> float:
     """Calculate value score (projection - replacement level)."""
     if position in replacement_levels and projection is not None:
         replacement_value = replacement_levels[position].get('value', 0)
+        print(f"DEBUG VALUE: {position} - projection: {projection}, replacement: {replacement_value}")
         if replacement_value:
-            return projection - replacement_value
+            result = projection - replacement_value
+            print(f"DEBUG VALUE: {position} - calculated: {result}")
+            return result
+        else:
+            print(f"DEBUG VALUE: {position} - replacement_value is 0 or None")
+    else:
+        print(f"DEBUG VALUE: {position} - not in replacement_levels or projection is None")
     return 0.0
 
 def get_draft_settings(session_id: int) -> Dict:

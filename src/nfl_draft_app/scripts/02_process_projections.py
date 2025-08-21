@@ -1,7 +1,7 @@
 import os
 import sys
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -138,13 +138,19 @@ def process_projection_file(file_path, table_name, engine):
         df.dropna(subset=['player'], inplace=True)
         target_table = table_name
 
-    # Save the cleaned data to the database
+    # Save the cleaned data to the database with explicit data type handling for PostgreSQL
     # For ADP files, append to overall_adp table (duplicates will be cleaned up later)
     if target_table == 'overall_adp' and table_name != 'overall_adp':
-        df.to_sql(target_table, engine, if_exists="append", index=False)
+        df.to_sql(target_table, engine, if_exists="append", index=False, method='multi')
         print(f"Successfully processed and appended {table_name} data to table: {target_table}")
     else:
-        df.to_sql(target_table, engine, if_exists="replace", index=False)
+        # Ensure numeric columns are properly typed for PostgreSQL
+        numeric_columns = [col for col in df.columns if col not in ['player', 'team', 'team_name', 'position']]
+        for col in numeric_columns:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        df.to_sql(target_table, engine, if_exists="replace", index=False, method='multi')
         print(f"Successfully processed and saved data to table: {target_table}")
     
     print(f"  Columns: {df.columns.tolist()}")
@@ -171,8 +177,20 @@ def main():
         with engine.connect() as conn:
             for table in tables_to_clear:
                 try:
-                    conn.execute(text(f"DELETE FROM {table}"))
-                    print(f"Cleared existing data from {table}")
+                    # Check if table exists before trying to delete from it (PostgreSQL-friendly)
+                    check_query = """
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables 
+                            WHERE table_name = :table_name
+                        )
+                    """
+                    result = conn.execute(text(check_query), {"table_name": table})
+                    row = result.fetchone()
+                    if row and row[0]:  # Table exists
+                        conn.execute(text(f"DELETE FROM {table}"))
+                        print(f"Cleared existing data from {table}")
+                    else:
+                        print(f"Table {table} doesn't exist yet - will be created")
                 except Exception as table_error:
                     print(f"Warning: Could not clear {table}: {table_error}")
             conn.commit()

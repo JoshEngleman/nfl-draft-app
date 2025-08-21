@@ -566,7 +566,7 @@ def calculate_replacement_values():
                 SELECT fantasy_points 
                 FROM {table_name} 
                 WHERE fantasy_points IS NOT NULL
-                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
+                ORDER BY fantasy_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         else:
@@ -576,7 +576,7 @@ def calculate_replacement_values():
                 SELECT fantasy_points 
                 FROM {table_name} 
                 WHERE fantasy_points IS NOT NULL
-                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
+                ORDER BY fantasy_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         
@@ -586,15 +586,21 @@ def calculate_replacement_values():
             count_result = pd.read_sql_query(count_query, engine)
             row_count = count_result.iloc[0]['count']
             
+            print(f"DEBUGGING: {position} - Table {table_name} has {row_count} players with fantasy_points, need rank {rank}")
+            
             if row_count == 0:
                 replacement_values[position] = 0.0
+                print(f"DEBUGGING: {position} - No data found, setting to 0.0")
                 continue
             
             if row_count < rank:
                 replacement_values[position] = 0.0
+                print(f"DEBUGGING: {position} - Not enough players ({row_count} < {rank}), setting to 0.0")
                 continue
             
+            print(f"DEBUGGING: {position} - Executing query: {query}")
             result_df = pd.read_sql_query(query, engine)
+            
             if not result_df.empty:
                 replacement_value = result_df.iloc[0]['fantasy_points']
                 replacement_values[position] = replacement_value
@@ -609,12 +615,15 @@ def calculate_replacement_values():
                 with engine.connect() as conn:
                     conn.execute(text(update_query), {"value": replacement_value, "position": position})
                     conn.commit()
+                    print(f"DEBUGGING: {position} - Database updated successfully")
             else:
                 replacement_values[position] = 0.0
                 print(f"DEBUGGING: {position} - Query returned empty result")
         except Exception as e:
             replacement_values[position] = 0.0
             print(f"DEBUGGING: {position} - Exception occurred: {e}")
+            import traceback
+            print(f"DEBUGGING: {position} - Full traceback: {traceback.format_exc()}")
     
     print(f"DEBUGGING: Final replacement values: {replacement_values}")
     return replacement_values

@@ -4,6 +4,7 @@ builder = "NIXPACKS"
 [deploy]
 startCommand = "./startup.sh"
 
-# Try to use Railway's persistent storage if available
-[experimental]
-configMounts = ["/app/data"]
+# Volume for persistent database storage
+[[volumes]]
+name = "database_volume"
+mountPath = "/app/data"

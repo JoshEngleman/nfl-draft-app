@@ -62,8 +62,10 @@ print('Database initialization complete!')
 "
 fi
 
-# Debug: Show database info before starting
+# Debug: Show volume and database info before starting
 echo "=== DEBUG INFO ==="
+echo "Data directory exists: $(test -d /app/data && echo 'YES' || echo 'NO')"
+echo "Data directory contents: $(ls -la /app/data 2>/dev/null || echo 'Directory not accessible')"
 echo "Database file exists: $(test -f /app/data/fantasy_pros.db && echo 'YES' || echo 'NO')"
 if [ -f "/app/data/fantasy_pros.db" ]; then
     echo "Database size: $(ls -lh /app/data/fantasy_pros.db | awk '{print $5}')"
@@ -79,6 +81,7 @@ except Exception as e:
     print('Error:', e)
 " 2>/dev/null || echo 'Query failed')"
 fi
+echo "Volume mount info: $(df -h /app/data 2>/dev/null || echo 'No volume info available')"
 echo "=================="
 
 # Start the app

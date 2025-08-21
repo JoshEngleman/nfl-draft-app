@@ -1693,7 +1693,7 @@ def display_my_team():
     total_players = len(my_picks)
     total_projection = my_picks['projection'].sum() if 'projection' in my_picks.columns else 0
     avg_adp = my_picks['adp'].mean() if 'adp' in my_picks.columns else 0
-    avg_vona = my_picks['vona_score'].mean() if 'vona_score' in my_picks.columns else 0
+    avg_vona = my_picks['vona_score'].mean() if 'vona_score' in my_picks.columns and not my_picks['vona_score'].isna().all() else 0
     total_value = my_picks['value_score'].sum() if 'value_score' in my_picks.columns else 0
     
     # Position counts

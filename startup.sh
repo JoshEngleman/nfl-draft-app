@@ -107,7 +107,7 @@ print('SQLite initialization complete!')
     fi
 fi
 
-# Debug: Show database info before starting (PostgreSQL persistence test)
+# Debug: Show database info before starting (FINAL persistence test - should preserve Session 14:41)
 echo "=== DEBUG INFO ==="
 echo "Data directory exists: $(test -d /app/data && echo 'YES' || echo 'NO')"
 echo "Data directory contents: $(ls -la /app/data 2>/dev/null || echo 'Directory not accessible')"

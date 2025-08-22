@@ -1550,6 +1550,13 @@ def display_player_search():
                         st.session_state['expected_picks_expanded'] = False
                         # Mark this player as picked for visual feedback
                         st.session_state[f"player_picked_{player['player']}"] = True
+                        
+                        # Clear all search filters for easier next pick selection
+                        filter_keys_to_clear = ['player_search', 'pos_filter', 'team_filter', 'advanced_filters_open']
+                        for key in filter_keys_to_clear:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        
                         st.rerun()
                     else:
                         st.error("❌ Failed to record pick")

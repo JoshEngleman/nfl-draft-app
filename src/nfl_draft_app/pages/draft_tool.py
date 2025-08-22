@@ -1766,6 +1766,65 @@ def display_settings():
     
     st.markdown("---")
     
+    # Team Names Editor
+    st.markdown("### ✏️ Edit Team Names")
+    st.write("Customize the names of teams in your draft:")
+    
+    with st.form("team_names_form"):
+        st.markdown("#### Team Names")
+        
+        # Create input fields for each team
+        updated_team_names = {}
+        
+        # Get current team names
+        current_team_names = dm.get_team_names(st.session_state.current_session_id)
+        
+        # Create columns for better layout
+        num_teams = session['num_teams']
+        cols_per_row = 3
+        rows_needed = (num_teams + cols_per_row - 1) // cols_per_row
+        
+        for row in range(rows_needed):
+            cols = st.columns(cols_per_row)
+            for col_idx in range(cols_per_row):
+                team_num = row * cols_per_row + col_idx + 1
+                if team_num <= num_teams:
+                    with cols[col_idx]:
+                        current_name = current_team_names.get(team_num, f"Team {team_num}")
+                        updated_team_names[team_num] = st.text_input(
+                            f"Team {team_num}",
+                            value=current_name,
+                            key=f"team_name_{team_num}",
+                            help=f"Enter custom name for Team {team_num}"
+                        )
+        
+        # Form submission buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.form_submit_button("💾 Update Team Names", type="primary"):
+                try:
+                    # Convert dictionary to list format expected by update_team_names
+                    team_names_list = [updated_team_names[i] for i in range(1, num_teams + 1)]
+                    # Update team names in database
+                    dm.update_team_names(team_names_list, st.session_state.current_session_id)
+                    st.success("✅ Team names updated successfully!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error updating team names: {e}")
+        
+        with col2:
+            if st.form_submit_button("🔄 Reset to Defaults"):
+                try:
+                    # Reset to default team names
+                    default_names_list = [f"Team {i}" for i in range(1, num_teams + 1)]
+                    dm.update_team_names(default_names_list, st.session_state.current_session_id)
+                    st.success("✅ Team names reset to defaults!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error resetting team names: {e}")
+    
+    st.markdown("---")
+    
     # Replacement Levels Configuration
     st.markdown("### 📊 Replacement Levels")
     st.write("Set the rank for replacement level calculations. For example, QB=22 means the 22nd highest projected QB is the replacement level.")

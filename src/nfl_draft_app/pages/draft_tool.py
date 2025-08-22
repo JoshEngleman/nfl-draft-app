@@ -340,37 +340,57 @@ if 'current_session_id' not in st.session_state:
 if 'replacement_levels' not in st.session_state:
     st.session_state.replacement_levels = get_replacement_levels()
 
-# AUTO-CREATE A NEW DRAFT if none exists
-# This ensures users always start with a fresh draft
-if (st.session_state.current_session_id is None and 
-    st.session_state.draft_manager is None and 
-    not st.session_state.get('show_draft_loader', False)):
+# Try to restore last active draft session on page refresh
+# This helps maintain draft continuity across browser refreshes
+if ('last_session_id' in st.session_state and 
+    st.session_state.current_session_id is None and 
+    st.session_state.draft_manager is None):
     
     try:
-        # Create a new draft automatically
-        from datetime import datetime
+        last_session_id = st.session_state.last_session_id
         dm = DraftManager()
         
-        # Create default draft config
-        draft_name = f"Draft {datetime.now().strftime('%m/%d/%Y %H:%M')}"
-        config_id = dm.create_draft_config(draft_name, 10, 15, "snake")  # Default: 10 teams, 15 rounds, snake
+        # Check if the last session still exists
+        session = dm.get_draft_session(last_session_id)
+        if session:
+            # Restore the session
+            st.session_state.draft_manager = DraftManager(last_session_id)
+            st.session_state.current_session_id = last_session_id
+            st.success(f"🔄 **Restored draft session**: {session['name']}")
+        else:
+            # Last session was deleted, clear the reference
+            del st.session_state.last_session_id
+            
+    except Exception as e:
+        # Clear invalid last session reference
+        if 'last_session_id' in st.session_state:
+            del st.session_state.last_session_id
+
+# HANDLE NO ACTIVE DRAFT - Show management interface instead of auto-creating
+# This prevents accidentally creating new drafts on page refresh
+if (st.session_state.current_session_id is None and 
+    st.session_state.draft_manager is None and 
+    not st.session_state.get('show_draft_loader', False) and
+    not st.session_state.get('show_draft_creator', False) and
+    not st.session_state.get('show_draft_manager', False)):
+    
+    # Check if there are existing drafts first
+    try:
+        dm = DraftManager()
+        existing_sessions = dm.get_all_draft_sessions()
         
-        # Create session with default team names
-        session_name = f"Session {datetime.now().strftime('%H:%M')}"
-        team_names = [f"Team {i}" for i in range(1, 11)]  # Team 1, Team 2, etc.
-        session_id = dm.create_draft_session(config_id, session_name, team_names)
-        
-        # Set up the draft manager
-        st.session_state.draft_manager = DraftManager(session_id)
-        st.session_state.current_session_id = session_id
-        
-        # Calculate replacement values for this new draft
-        calculate_replacement_values()
-        st.session_state.replacement_levels = get_replacement_levels()
-        
+        if existing_sessions:
+            # Show draft manager to load existing drafts
+            st.session_state.show_draft_manager = True
+            st.info("💡 **Page refreshed** - Please select your draft to continue.")
+        else:
+            # No existing drafts, show creation interface
+            st.session_state.show_draft_creator = True
+            st.info("🏈 **Welcome!** Create your first draft to get started.")
+            
     except Exception as e:
         # Fall back to showing creation interface
-        st.error(f"Failed to create draft: {e}")
+        st.error(f"Failed to check existing drafts: {e}")
         st.session_state.show_draft_creator = True
 
 def create_new_draft():
@@ -415,6 +435,7 @@ def create_new_draft():
             # Create a new DraftManager instance with the correct session_id
             st.session_state.draft_manager = DraftManager(session_id)
             st.session_state.current_session_id = session_id
+            st.session_state.last_session_id = session_id  # Track for session persistence
             
             # Clear any creation/loading flags
             st.session_state.show_draft_creator = False
@@ -490,6 +511,8 @@ def display_draft_manager():
                 if current_session_deleted:
                     st.session_state.current_session_id = None
                     st.session_state.draft_manager = None
+                    if 'last_session_id' in st.session_state:
+                        del st.session_state.last_session_id
                 
                 if deleted_count > 0:
                     st.success(f"✅ Successfully deleted {deleted_count} draft session(s)")
@@ -561,6 +584,7 @@ def display_draft_manager():
                 if st.button("📂 Load", key=f"load_{session['id']}", use_container_width=True):
                     st.session_state.current_session_id = session['id']
                     st.session_state.draft_manager = DraftManager(session['id'])
+                    st.session_state.last_session_id = session['id']  # Track for session persistence
                     st.session_state.show_draft_manager = False
                     st.session_state.bulk_selected = []
                     st.success(f"✅ Loaded: {draft_name}")
@@ -592,6 +616,8 @@ def display_draft_manager():
                         if st.session_state.get('current_session_id') == session['id']:
                             st.session_state.current_session_id = None
                             st.session_state.draft_manager = None
+                            if 'last_session_id' in st.session_state:
+                                del st.session_state.last_session_id
                     else:
                         st.error("❌ Failed to delete draft session")
                     
@@ -665,6 +691,7 @@ def load_existing_draft():
                     if session_dm.load_draft_session(session['id']):
                         st.session_state.draft_manager = session_dm
                         st.session_state.current_session_id = session['id']
+                        st.session_state.last_session_id = session['id']  # Track for session persistence
                         
                         # Clear any creation/loading flags
                         st.session_state.show_draft_creator = False
@@ -720,6 +747,8 @@ def display_draft_board():
         # Clear the invalid session
         st.session_state.current_session_id = None
         st.session_state.draft_manager = None
+        if 'last_session_id' in st.session_state:
+            del st.session_state.last_session_id
         return
     
     picks_df = dm.get_draft_picks(st.session_state.current_session_id)
@@ -829,6 +858,8 @@ def display_player_search():
         # Clear the invalid session
         st.session_state.current_session_id = None
         st.session_state.draft_manager = None
+        if 'last_session_id' in st.session_state:
+            del st.session_state.last_session_id
         return
     
     current_pick_info = dm.get_current_pick_info(st.session_state.current_session_id)
@@ -1661,6 +1692,7 @@ def display_settings():
                 # Set up the new draft
                 st.session_state.draft_manager = DraftManager(session_id)
                 st.session_state.current_session_id = session_id
+                st.session_state.last_session_id = session_id  # Track for session persistence
                 
                 # Calculate replacement values for this new draft
                 calculate_replacement_values()

@@ -1364,9 +1364,9 @@ def display_player_search():
     
     # Initialize multi-column sorting state
     if 'sort_columns' not in st.session_state:
-        st.session_state.sort_columns = [('player', True)]  # List of (column, ascending) tuples - default to player name A-Z
+        st.session_state.sort_columns = [('adp', True)]  # List of (column, ascending) tuples - default to ADP low to high
     if 'sort_column' not in st.session_state:  # Legacy support
-        st.session_state.sort_column = 'player'
+        st.session_state.sort_column = 'adp'
     if 'sort_ascending' not in st.session_state:  # Legacy support
         st.session_state.sort_ascending = True
     

@@ -43,30 +43,36 @@ else
     exit 1
 fi
 
-# Only run initialization if database doesn't exist or needs setup
-if [ "$DB_EXISTS" = false ]; then
-    # PostgreSQL-only mode
-    echo "PostgreSQL: Setting up draft tables and initializing data..."
-    
-    # Download projection data if needed
-    if [ ! -d "/app/data/raw_projections" ] || [ -z "$(ls -A /app/data/raw_projections)" ]; then
-        echo "Downloading initial projection data..."
-        cd /app
-        python src/nfl_draft_app/scripts/01_download_projections.py
-    fi
+# Always process CSV files if they exist (fresh data from git)
+if [ -d "/app/data/raw_projections" ] && [ "$(ls -A /app/data/raw_projections)" ]; then
+    echo "Found CSV files in /app/data/raw_projections - processing fresh data..."
     
     # Process projection data into PostgreSQL
     echo "Processing projection data into PostgreSQL..."
     cd /app
     python src/nfl_draft_app/scripts/02_process_projections.py
     
-    # Setup draft tables in PostgreSQL
-    echo "Setting up draft tables in PostgreSQL..."
-    python src/nfl_draft_app/scripts/03_setup_draft_tables.py
+    echo "Fresh data processing completed."
+else
+    echo "No CSV files found - will download fresh data..."
+    # Download projection data if needed
+    echo "Downloading initial projection data..."
+    cd /app
+    python src/nfl_draft_app/scripts/01_download_projections.py
     
-    # Calculate replacement values
-    echo "Calculating replacement values..."
-    python -c "
+    # Process the downloaded data
+    echo "Processing downloaded projection data into PostgreSQL..."
+    python src/nfl_draft_app/scripts/02_process_projections.py
+fi
+
+# Always ensure draft tables exist (idempotent operation)
+echo "Setting up draft tables in PostgreSQL..."
+cd /app
+python src/nfl_draft_app/scripts/03_setup_draft_tables.py
+
+# Calculate replacement values
+echo "Calculating replacement values..."
+python -c "
 import sys
 sys.path.insert(0, '/app/src')
 from nfl_draft_app.utils.draft_logic import calculate_replacement_values
@@ -75,7 +81,6 @@ replacement_values = calculate_replacement_values()
 print(f'Replacement values calculated: {replacement_values}')
 print('PostgreSQL initialization complete!')
 "
-fi
 
 # Debug: Show PostgreSQL database info
 echo "=== DEBUG INFO ==="

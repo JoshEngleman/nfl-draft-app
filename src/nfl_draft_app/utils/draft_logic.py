@@ -349,7 +349,7 @@ class DraftManager:
         if session_id is None:
             session_id = self.session_id
         
-        # Get all players from projections and ADP data
+        # Get all players from projections and ADP data with PPR scoring
         query = '''
             SELECT 
                 p.player,
@@ -357,7 +357,13 @@ class DraftManager:
                 'QB' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- PPR Scoring: Pass TD=4, Rush TD=6, Pass Yard=0.04, Rush Yard=0.1, INT=-2, Fumble=-2
+                (COALESCE(p.pass_tds, 0) * 4 + 
+                 COALESCE(p.pass_yds, 0) * 0.04 + 
+                 COALESCE(p.rush_tds, 0) * 6 + 
+                 COALESCE(p.rush_yds, 0) * 0.1 + 
+                 COALESCE(p.pass_ints, 0) * -2 + 
+                 COALESCE(p.fumbles_lost, 0) * -2) as projection
             FROM qb_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
@@ -372,7 +378,13 @@ class DraftManager:
                 'RB' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- PPR Scoring: Rush TD=6, Rec TD=6, Rush Yard=0.1, Rec Yard=0.1, Reception=1, Fumble=-2
+                (COALESCE(p.rush_tds, 0) * 6 + 
+                 COALESCE(p.rush_yds, 0) * 0.1 + 
+                 COALESCE(p.rec_tds, 0) * 6 + 
+                 COALESCE(p.rec_yds, 0) * 0.1 + 
+                 COALESCE(p.receptions, 0) * 1 + 
+                 COALESCE(p.fumbles_lost, 0) * -2) as projection
             FROM rb_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
@@ -387,7 +399,13 @@ class DraftManager:
                 'WR' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- PPR Scoring: Rec TD=6, Rush TD=6, Rec Yard=0.1, Rush Yard=0.1, Reception=1, Fumble=-2
+                (COALESCE(p.rec_tds, 0) * 6 + 
+                 COALESCE(p.rec_yds, 0) * 0.1 + 
+                 COALESCE(p.rush_tds, 0) * 6 + 
+                 COALESCE(p.rush_yds, 0) * 0.1 + 
+                 COALESCE(p.receptions, 0) * 1 + 
+                 COALESCE(p.fumbles_lost, 0) * -2) as projection
             FROM wr_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
@@ -402,7 +420,11 @@ class DraftManager:
                 'TE' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- PPR Scoring: Rec TD=6, Rec Yard=0.1, Reception=1, Fumble=-2
+                (COALESCE(p.rec_tds, 0) * 6 + 
+                 COALESCE(p.rec_yds, 0) * 0.1 + 
+                 COALESCE(p.receptions, 0) * 1 + 
+                 COALESCE(p.fumbles_lost, 0) * -2) as projection
             FROM te_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
@@ -417,7 +439,9 @@ class DraftManager:
                 'K' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- Kicker Scoring: FG=3, XP=1
+                (COALESCE(p.fg_made, 0) * 3 + 
+                 COALESCE(p.xp_made, 0) * 1) as projection
             FROM k_projections p
             LEFT JOIN overall_adp a ON p.player = a.player
             WHERE p.player NOT IN (
@@ -432,7 +456,12 @@ class DraftManager:
                 'DST' as position,
                 a.bye_week,
                 a.avg_adp as adp,
-                p.fantasy_points as projection
+                -- DST Scoring: Sack=1, INT=2, Fumble Rec=2, TD=6, Safety=2, Points/Yards allowed varies
+                (COALESCE(p.sacks, 0) * 1 + 
+                 COALESCE(p.def_int, 0) * 2 + 
+                 COALESCE(p.fumble_rec, 0) * 2 + 
+                 COALESCE(p.def_tds, 0) * 6 + 
+                 COALESCE(p.safeties, 0) * 2) as projection
             FROM dst_projections p
             LEFT JOIN overall_adp a ON p.team_name = a.player
             WHERE p.team_name NOT IN (
@@ -569,30 +598,96 @@ def calculate_replacement_values():
         position = row['position']
         rank = row['replacement_rank']
         
-        if position == 'DST':
-            # DST uses team_name from dst_projections
-            table_name = 'dst_projections'
+        if position == 'QB':
+            table_name = 'qb_projections'
             query = f'''
-                SELECT fantasy_points 
+                SELECT (COALESCE(pass_tds, 0) * 4 + 
+                        COALESCE(pass_yds, 0) * 0.04 + 
+                        COALESCE(rush_tds, 0) * 6 + 
+                        COALESCE(rush_yds, 0) * 0.1 + 
+                        COALESCE(pass_ints, 0) * -2 + 
+                        COALESCE(fumbles_lost, 0) * -2) as ppr_points
                 FROM {table_name} 
-                WHERE fantasy_points IS NOT NULL
-                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
+                WHERE pass_tds IS NOT NULL OR pass_yds IS NOT NULL
+                ORDER BY ppr_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
-        else:
-            # Other positions use standard projections tables
-            table_name = f"{position.lower()}_projections"
+        elif position == 'RB':
+            table_name = 'rb_projections'
             query = f'''
-                SELECT fantasy_points 
+                SELECT (COALESCE(rush_tds, 0) * 6 + 
+                        COALESCE(rush_yds, 0) * 0.1 + 
+                        COALESCE(rec_tds, 0) * 6 + 
+                        COALESCE(rec_yds, 0) * 0.1 + 
+                        COALESCE(receptions, 0) * 1 + 
+                        COALESCE(fumbles_lost, 0) * -2) as ppr_points
                 FROM {table_name} 
-                WHERE fantasy_points IS NOT NULL
-                ORDER BY CAST(fantasy_points AS NUMERIC) DESC 
+                WHERE rush_att IS NOT NULL OR receptions IS NOT NULL
+                ORDER BY ppr_points DESC 
+                LIMIT 1 OFFSET {rank - 1}
+            '''
+        elif position == 'WR':
+            table_name = 'wr_projections'
+            query = f'''
+                SELECT (COALESCE(rec_tds, 0) * 6 + 
+                        COALESCE(rec_yds, 0) * 0.1 + 
+                        COALESCE(rush_tds, 0) * 6 + 
+                        COALESCE(rush_yds, 0) * 0.1 + 
+                        COALESCE(receptions, 0) * 1 + 
+                        COALESCE(fumbles_lost, 0) * -2) as ppr_points
+                FROM {table_name} 
+                WHERE receptions IS NOT NULL
+                ORDER BY ppr_points DESC 
+                LIMIT 1 OFFSET {rank - 1}
+            '''
+        elif position == 'TE':
+            table_name = 'te_projections'
+            query = f'''
+                SELECT (COALESCE(rec_tds, 0) * 6 + 
+                        COALESCE(rec_yds, 0) * 0.1 + 
+                        COALESCE(receptions, 0) * 1 + 
+                        COALESCE(fumbles_lost, 0) * -2) as ppr_points
+                FROM {table_name} 
+                WHERE receptions IS NOT NULL
+                ORDER BY ppr_points DESC 
+                LIMIT 1 OFFSET {rank - 1}
+            '''
+        elif position == 'K':
+            table_name = 'k_projections'
+            query = f'''
+                SELECT (COALESCE(fg_made, 0) * 3 + 
+                        COALESCE(xp_made, 0) * 1) as ppr_points
+                FROM {table_name} 
+                WHERE fg_made IS NOT NULL OR xp_made IS NOT NULL
+                ORDER BY ppr_points DESC 
+                LIMIT 1 OFFSET {rank - 1}
+            '''
+        elif position == 'DST':
+            table_name = 'dst_projections'
+            query = f'''
+                SELECT (COALESCE(sacks, 0) * 1 + 
+                        COALESCE(def_int, 0) * 2 + 
+                        COALESCE(fumble_rec, 0) * 2 + 
+                        COALESCE(def_tds, 0) * 6 + 
+                        COALESCE(safeties, 0) * 2) as ppr_points
+                FROM {table_name} 
+                WHERE sacks IS NOT NULL OR def_int IS NOT NULL
+                ORDER BY ppr_points DESC 
                 LIMIT 1 OFFSET {rank - 1}
             '''
         
         try:
-            # First check if table exists and has data (non-NULL fantasy_points)
-            count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE fantasy_points IS NOT NULL"
+            # First check if table exists and has data based on position
+            if position == 'QB':
+                count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE pass_tds IS NOT NULL OR pass_yds IS NOT NULL"
+            elif position in ['RB', 'WR']:
+                count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE rush_att IS NOT NULL OR receptions IS NOT NULL"
+            elif position == 'TE':
+                count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE receptions IS NOT NULL"
+            elif position == 'K':
+                count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE fg_made IS NOT NULL OR xp_made IS NOT NULL"
+            elif position == 'DST':
+                count_query = f"SELECT COUNT(*) as count FROM {table_name} WHERE sacks IS NOT NULL OR def_int IS NOT NULL"
             count_result = pd.read_sql_query(count_query, engine)
             row_count = count_result.iloc[0]['count']
             
@@ -612,7 +707,7 @@ def calculate_replacement_values():
             result_df = pd.read_sql_query(query, engine)
             
             if not result_df.empty:
-                replacement_value = result_df.iloc[0]['fantasy_points']
+                replacement_value = result_df.iloc[0]['ppr_points']
                 # Convert NumPy types to native Python float for PostgreSQL compatibility
                 replacement_value = float(replacement_value)
                 replacement_values[position] = replacement_value

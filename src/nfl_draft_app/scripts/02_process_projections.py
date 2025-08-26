@@ -42,7 +42,7 @@ def process_projection_file(file_path, table_name, engine):
         'te_projections': ['player', 'team', 'receptions', 'rec_yds', 'rec_tds', 'fumbles_lost', 'fantasy_points'],
         'k_projections': ['player', 'team', 'fg_made', 'fg_att', 'xp_made', 'fantasy_points'],
         'dst_projections': ['team_name', 'team_abbr', 'sacks', 'def_int', 'fumble_rec', 'forced_fumbles', 'def_tds', 'safeties', 'pts_allowed', 'yds_allowed', 'fantasy_points'],
-        'overall_adp': ['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp'],
+        'overall_adp': ['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp', 'realtime_adp'],
         # Position-specific ADP files - some have 8 columns, others have 12
         'qb_adp': ['rank', 'player', 'team', 'bye_week', 'position', 'sleeper_adp', 'rtsports_adp', 'avg_adp'],
         'rb_adp': ['pos_rank', 'overall_rank', 'player', 'team', 'bye_week', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp'],
@@ -68,7 +68,7 @@ def process_projection_file(file_path, table_name, engine):
         # For ADP data, clean numeric columns and handle empty values
         # Different columns based on file type
         if table_name == 'overall_adp':
-            numeric_cols = ['rank', 'bye_week', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp']
+            numeric_cols = ['rank', 'bye_week', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp', 'realtime_adp']
         elif table_name in ['rb_adp', 'wr_adp', 'te_adp']:
             # These files have full ADP data
             numeric_cols = ['pos_rank', 'overall_rank', 'bye_week', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp']
@@ -98,12 +98,12 @@ def process_projection_file(file_path, table_name, engine):
                 df['position'] = table_name.split('_')[0].upper() + '1'  # Add basic position info
                 
                 # Ensure all required columns exist
-                required_cols = ['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp']
+                required_cols = ['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp', 'realtime_adp']
                 df = df[required_cols]
             else:
                 # Files with simplified structure (qb_adp, k_adp, dst_adp)
                 # Add missing ADP columns with NaN values
-                missing_cols = ['espn_adp', 'cbs_adp', 'nfl_adp', 'fantrax_adp']
+                missing_cols = ['espn_adp', 'cbs_adp', 'nfl_adp', 'fantrax_adp', 'realtime_adp']
                 for col in missing_cols:
                     if col not in df.columns:
                         df[col] = pd.NA
@@ -113,7 +113,7 @@ def process_projection_file(file_path, table_name, engine):
                     df['position'] = table_name.split('_')[0].upper() + '1'
                 
                 # Reorder columns to match overall_adp structure
-                df = df[['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp']]
+                df = df[['rank', 'player', 'team', 'bye_week', 'position', 'espn_adp', 'sleeper_adp', 'cbs_adp', 'nfl_adp', 'rtsports_adp', 'fantrax_adp', 'avg_adp', 'realtime_adp']]
             
             target_table = 'overall_adp'  # All ADP data goes into one table
         else:
